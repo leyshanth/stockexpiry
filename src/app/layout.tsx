@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/components/AuthProvider";
-import { Toaster } from "sonner";
+import { Toaster } from "react-hot-toast";
+import AuthProvider from "@/components/AuthProvider";
 
-const inter = Inter({ subsets: ['latin'] });
-const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'] });
+// Define the fonts
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jetbrains-mono",
+});
 
 export const metadata: Metadata = {
-  title: "Stock & Expiry Tracker",
-  description: "Track your product stock and expiry dates",
-  manifest: "/manifest.json",
+  title: "Stock Expiry Tracker",
+  description: "Track your inventory and expiry dates",
 };
 
 export default function RootLayout({
@@ -27,7 +36,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
+      <body className={`${inter.className} ${jetbrainsMono.className} antialiased`}>
         <AuthProvider>
           {children}
           <Toaster />

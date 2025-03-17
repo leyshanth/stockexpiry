@@ -3,88 +3,103 @@ import pool from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Test basic connection
-    console.log("Testing database connection...");
+    console.log("Checking database...");
+    
+    // Set a shorter statement timeout for this connection
+    await pool.query("SET statement_timeout = '2000'");
+    
+    // Check connection
     const connectionTest = await pool.query("SELECT NOW()");
+    console.log("Database connection successful:", connectionTest.rows[0].now);
     
-    // Check table structure
-    const usersColumns = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'users'
-    `);
-    
-    const userColumnNames = usersColumns.rows.map(row => row.column_name);
-    console.log("User table columns:", userColumnNames);
-    
-    // Get current user info with dynamic column selection
-    const email = 'leyshanth.1177@gmail.com';
-    let userResult;
-    
-    if (userColumnNames.includes('name')) {
-      userResult = await pool.query(
-        "SELECT id, name, email FROM users WHERE email = $1",
-        [email]
-      );
-    } else {
-      userResult = await pool.query(
-        "SELECT id, email FROM users WHERE email = $1",
-        [email]
-      );
-    }
-    
-    const user = userResult.rows.length > 0 ? userResult.rows[0] : null;
-    
-    // Check if tables exist before querying them
-    const tablesResult = await pool.query(`
+    // Check tables
+    const tables = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
     `);
     
-    const tables = tablesResult.rows.map(row => row.table_name);
+    const tableNames = tables.rows.map(row => row.table_name);
+    console.log("Tables:", tableNames);
     
-    let expiryCount = { count: '0' };
-    let productsCount = { count: '0' };
-    let expiryItems = [];
-    let products = [];
-    
-    if (tables.includes('expiry_items')) {
-      const expiryCountResult = await pool.query("SELECT COUNT(*) FROM expiry_items");
-      expiryCount = expiryCountResult.rows[0];
-      
-      const expiryItemsResult = await pool.query(
-        "SELECT id, item_name, expiry_date FROM expiry_items LIMIT 3"
-      );
-      expiryItems = expiryItemsResult.rows;
+    // Check users table
+    let userColumns = [];
+    if (tableNames.includes('users')) {
+      const userColumnsResult = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users'
+      `);
+      userColumns = userColumnsResult.rows.map(row => row.column_name);
+      console.log("Users table columns:", userColumns);
     }
     
-    if (tables.includes('products')) {
-      const productsCountResult = await pool.query("SELECT COUNT(*) FROM products");
-      productsCount = productsCountResult.rows[0];
-      
-      const productsResult = await pool.query(
-        "SELECT id, name, price FROM products LIMIT 3"
-      );
-      products = productsResult.rows;
+    // Get user info safely
+    let user = null;
+    if (tableNames.includes('users')) {
+      try {
+        const email = 'leyshanth.1177@gmail.com';
+        let query = "SELECT id, email";
+        
+        // Only include name if it exists
+        if (userColumns.includes('name')) {
+          query += ", name";
+        }
+        
+        query += " FROM users WHERE email = $1";
+        
+        const userResult = await pool.query(query, [email]);
+        user = userResult.rows.length > 0 ? userResult.rows[0] : null;
+      } catch (err) {
+        console.error("Error getting user:", err);
+      }
+    }
+    
+    // Check products table
+    let productColumns = [];
+    if (tableNames.includes('products')) {
+      const productColumnsResult = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'products'
+      `);
+      productColumns = productColumnsResult.rows.map(row => row.column_name);
+    }
+    
+    // Check expiry_items table
+    let expiryColumns = [];
+    if (tableNames.includes('expiry_items')) {
+      const expiryColumnsResult = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'expiry_items'
+      `);
+      expiryColumns = expiryColumnsResult.rows.map(row => row.column_name);
     }
     
     return NextResponse.json({
       success: true,
       connection: "Connected to database",
       timestamp: connectionTest.rows[0].now,
-      tables: tables,
-      userColumns: userColumnNames,
-      user: user,
-      counts: {
-        expiryItems: parseInt(expiryCount.count),
-        products: parseInt(productsCount.count)
+      tables: tableNames,
+      columns: {
+        users: userColumns,
+        products: productColumns,
+        expiry_items: expiryColumns
       },
-      samples: {
-        expiryItems: expiryItems,
-        products: products
+      user: user,
+      issues: {
+        usersTableMissing: !tableNames.includes('users'),
+        productsTableMissing: !tableNames.includes('products'),
+        expiryTableMissing: !tableNames.includes('expiry_items'),
+        userNameColumnMissing: tableNames.includes('users') && !userColumns.includes('name'),
+        productNameColumnMissing: tableNames.includes('products') && !productColumns.includes('name'),
+        expiryItemNameColumnMissing: tableNames.includes('expiry_items') && !expiryColumns.includes('item_name')
+      },
+      fixUrls: {
+        fixNameColumn: "/api/fix-name-column"
       }
     });
   } catch (error) {

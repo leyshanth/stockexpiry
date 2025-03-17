@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Quagga from "@ericblade/quagga2";
+import React, { useRef, useEffect, useState } from 'react';
+import Quagga from '@ericblade/quagga2';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -10,65 +10,71 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onDetected, onClose }) => {
   const scannerRef = useRef<HTMLDivElement>(null);
+  const [camera, setCamera] = useState<MediaDeviceInfo | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (!scannerRef.current) return;
-
-    const startScanner = async () => {
-      try {
-        // First check if camera is available
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(device => device.kind === 'videoinput');
-        
-        if (cameras.length === 0) {
-          throw new Error("No camera found on this device");
+    // Get available cameras
+    navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setCameras(videoDevices);
+        if (videoDevices.length > 0) {
+          // Default to the back camera if available (usually the second camera on mobile)
+          const backCamera = videoDevices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear')
+          );
+          setCamera(backCamera || videoDevices[0]);
         }
+      })
+      .catch(err => console.error('Error enumerating devices:', err));
+  }, []);
 
-        // Initialize Quagga with more robust error handling
-        await Quagga.init(
-          {
-            inputStream: {
-              type: "LiveStream",
-              constraints: {
-                width: { min: 450 },
-                height: { min: 300 },
-                facingMode: "environment",
-                aspectRatio: { min: 1, max: 2 }
-              },
-              target: scannerRef.current,
-              area: { // Only search in the center of the video
-                top: "25%",
-                right: "25%",
-                left: "25%",
-                bottom: "25%",
-              },
-            },
-            locator: {
-              patchSize: "medium",
-              halfSample: true,
-            },
-            numOfWorkers: 2,
-            decoder: {
-              readers: ["ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader"],
-            },
-            locate: true,
+  useEffect(() => {
+    if (camera && scannerRef.current) {
+      Quagga.init({
+        inputStream: {
+          type: 'LiveStream',
+          constraints: {
+            width: { min: 450 },
+            height: { min: 300 },
+            facingMode: 'environment',
+            deviceId: camera.deviceId,
+            aspectRatio: { min: 1, max: 2 }
           },
-          (err) => {
-            if (err) {
-              console.error("Error starting Quagga:", err);
-              setHasError(true);
-              toast.error("Failed to start camera");
-              return;
-            }
-            setIsStarted(true);
-            Quagga.start();
-          }
-        );
-
+          target: scannerRef.current, // This is now safe because we check for null
+          area: { // Only search in the center of the video
+            top: "25%",
+            right: "25%",
+            left: "25%",
+            bottom: "25%",
+          },
+        },
+        locator: {
+          patchSize: 'medium',
+          halfSample: true
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        decoder: {
+          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader']
+        },
+        locate: true
+      }, (err) => {
+        if (err) {
+          console.error('Error initializing Quagga:', err);
+          setHasError(true);
+          toast.error("Failed to start camera");
+          return;
+        }
+        
+        setIsStarted(true);
+        Quagga.start();
+        
         Quagga.onDetected((result) => {
           if (result && result.codeResult) {
             const code = result.codeResult.code;
@@ -78,25 +84,27 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             }
           }
         });
-      } catch (error) {
-        console.error("Error initializing scanner:", error);
-        setHasError(true);
-        toast.error(error instanceof Error ? error.message : "Failed to initialize scanner");
-      }
-    };
-
-    startScanner();
-
-    return () => {
-      if (isStarted) {
-        try {
-          Quagga.stop();
-        } catch (error) {
-          console.error("Error stopping Quagga:", error);
+      });
+      
+      return () => {
+        if (isStarted) {
+          try {
+            Quagga.stop();
+          } catch (error) {
+            console.error("Error stopping Quagga:", error);
+          }
         }
-      }
-    };
-  }, [onDetected]);
+      };
+    }
+  }, [camera, onDetected]);
+
+  const switchCamera = () => {
+    if (cameras.length > 1) {
+      const currentIndex = cameras.findIndex(c => c.deviceId === camera?.deviceId);
+      const nextIndex = (currentIndex + 1) % cameras.length;
+      setCamera(cameras[nextIndex]);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
@@ -130,4 +138,6 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       </div>
     </div>
   );
-} 
+};
+
+export default BarcodeScanner; 

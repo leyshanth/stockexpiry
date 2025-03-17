@@ -91,8 +91,8 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
               drawingCtx.clearRect(
                 0,
                 0,
-                parseInt(drawingCanvas.getAttribute("width")),
-                parseInt(drawingCanvas.getAttribute("height"))
+                parseInt(drawingCanvas.getAttribute("width") || "0"),
+                parseInt(drawingCanvas.getAttribute("height") || "0")
               );
               result.boxes.filter((box: any) => box !== result.box).forEach((box: any) => {
                 Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, {

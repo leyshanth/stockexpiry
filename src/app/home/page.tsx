@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Navbar } from "@/components/Navbar";
@@ -37,32 +37,36 @@ export default function HomePage() {
     expired: false,
     all: true,
   });
+  const [fetchTrigger, setFetchTrigger] = useState(0);
+
+  // Use useCallback to prevent the function from being recreated on every render
+  const fetchExpiryItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/expiry");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch expiry items");
+      }
+      
+      const data = await response.json();
+      
+      // Check if the response has an 'items' property (new format)
+      const items = data.items || data;
+      
+      setExpiryItems(items);
+    } catch (error) {
+      console.error("Error fetching expiry items:", error);
+      toast.error("Failed to load expiry items");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchExpiryItems = async () => {
-      try {
-        const response = await fetch("/api/expiry");
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch expiry items");
-        }
-        
-        const data = await response.json();
-        
-        // Check if the response has an 'items' property (new format)
-        const items = data.items || data;
-        
-        setExpiryItems(items);
-      } catch (error) {
-        console.error("Error fetching expiry items:", error);
-        toast.error("Failed to load expiry items");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchExpiryItems();
-  }, []);
+    // Only run this effect when fetchTrigger changes
+  }, [fetchTrigger, fetchExpiryItems]);
 
   const handleDeleteItem = async (id: number) => {
     if (!confirm("Are you sure you want to delete this item?")) {
@@ -78,7 +82,8 @@ export default function HomePage() {
         throw new Error("Failed to delete item");
       }
       
-      setExpiryItems(expiryItems.filter(item => item.id !== id));
+      // Update the UI by triggering a re-fetch instead of modifying state directly
+      setFetchTrigger(prev => prev + 1);
       toast.success("Item deleted successfully");
     } catch (error) {
       console.error("Error deleting item:", error);

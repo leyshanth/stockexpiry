@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 import { Navbar } from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -25,12 +25,10 @@ export default function DeletedPage() {
   const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [fetchTrigger, setFetchTrigger] = useState(0);
 
-  useEffect(() => {
-    fetchDeletedItems();
-  }, []);
-
-  const fetchDeletedItems = async () => {
+  // Use useCallback to prevent the function from being recreated on every render
+  const fetchDeletedItems = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/deleted");
@@ -49,7 +47,12 @@ export default function DeletedPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDeletedItems();
+    // Only run this effect when fetchTrigger changes
+  }, [fetchTrigger, fetchDeletedItems]);
 
   const handleRestoreItem = async (id: number, type: string) => {
     try {
@@ -65,7 +68,8 @@ export default function DeletedPage() {
         throw new Error("Failed to restore item");
       }
       
-      setDeletedItems(deletedItems.filter(item => item.id !== id));
+      // Trigger a re-fetch instead of modifying state directly
+      setFetchTrigger(prev => prev + 1);
       toast.success("Item restored successfully");
     } catch (error) {
       console.error("Error restoring item:", error);
@@ -84,14 +88,15 @@ export default function DeletedPage() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to permanently delete item");
+        throw new Error("Failed to delete item");
       }
       
-      setDeletedItems(deletedItems.filter(item => item.id !== id));
+      // Trigger a re-fetch instead of modifying state directly
+      setFetchTrigger(prev => prev + 1);
       toast.success("Item permanently deleted");
     } catch (error) {
-      console.error("Error permanently deleting item:", error);
-      toast.error("Failed to permanently delete item");
+      console.error("Error deleting item:", error);
+      toast.error("Failed to delete item");
     }
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BarcodeScanner from '@/components/BarcodeScanner';
@@ -40,32 +40,36 @@ export default function ProductsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const router = useRouter();
+  const [fetchTrigger, setFetchTrigger] = useState(0);
+
+  // Use useCallback to prevent the function from being recreated on every render
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/products");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch products");
+      }
+      
+      const data = await response.json();
+      
+      // Check if the response has an 'items' property (new format)
+      const items = data.items || data;
+      
+      setProducts(items);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products");
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch products");
-        }
-        
-        const data = await response.json();
-        
-        // Check if the response has an 'items' property (new format)
-        const items = data.items || data;
-        
-        setProducts(items);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        toast.error("Failed to load products");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProducts();
-  }, []);
+    // Only run this effect when fetchTrigger changes
+  }, [fetchTrigger, fetchProducts]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -159,8 +163,8 @@ export default function ProductsPage() {
       setImagePreview(null);
       setShowForm(false);
       
-      // Refresh products list
-      router.refresh();
+      // Trigger a re-fetch instead of refreshing the page
+      setFetchTrigger(prev => prev + 1);
     } catch (error) {
       console.error("Error adding product:", error);
       toast.error("Failed to add product");

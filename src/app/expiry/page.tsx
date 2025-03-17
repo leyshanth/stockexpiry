@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { Navbar } from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -42,6 +42,7 @@ export default function ExpiryPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [productFound, setProductFound] = useState(false);
   const [expiryItems, setExpiryItems] = useState([]);
+  const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -133,6 +134,34 @@ export default function ExpiryPage() {
     setShowScanner(true);
   };
 
+  // Use useCallback to prevent the function from being recreated on every render
+  const fetchExpiryItems = useCallback(async () => {
+    try {
+      const response = await fetch("/api/expiry");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch expiry items");
+      }
+      
+      const data = await response.json();
+      
+      // Check if the response has an 'items' property (new format)
+      const items = data.items || data;
+      
+      setExpiryItems(items);
+    } catch (error) {
+      console.error("Error fetching expiry items:", error);
+      toast.error("Failed to load expiry items");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExpiryItems();
+    // Only run this effect when fetchTrigger changes
+  }, [fetchTrigger, fetchExpiryItems]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -167,87 +196,20 @@ export default function ExpiryPage() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to save expiry item");
+        throw new Error("Failed to add expiry item");
       }
       
       toast.success("Expiry item added successfully");
       
-      // If product wasn't in database before, ask if user wants to save it
-      if (!productFound && formData.barcode) {
-        const saveProduct = window.confirm("Would you like to save this as a product for future use?");
-        
-        if (saveProduct) {
-          const productData = {
-            barcode: formData.barcode,
-            item_name: formData.item_name,
-            price: parseFloat(formData.price) || 0,
-            weight: formData.weight,
-            category: formData.category,
-            image_url: imageUrl,
-          };
-          
-          const productResponse = await fetch("/api/products", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(productData),
-          });
-          
-          if (productResponse.ok) {
-            toast.success("Product saved for future use");
-          }
-        }
-      }
-      
-      // Reset form
-      setFormData({
-        barcode: "",
-        item_name: "",
-        price: "",
-        weight: "",
-        category: "",
-        image_url: "",
-        quantity: "1",
-        expiry_date: format(new Date(), "yyyy-MM-dd"),
-      });
-      setImageFile(null);
-      setImagePreview(null);
-      setProductFound(false);
-      
       // Navigate to home page
       router.push("/home");
     } catch (error) {
-      console.error("Error saving expiry item:", error);
-      toast.error("Failed to save expiry item");
+      console.error("Error adding expiry item:", error);
+      toast.error("Failed to add expiry item");
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    const fetchExpiryItems = async () => {
-      try {
-        const response = await fetch("/api/expiry");
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch expiry items");
-        }
-        
-        const data = await response.json();
-        
-        // Check if the response has an 'items' property (new format)
-        const items = data.items || data;
-        
-        setExpiryItems(items);
-      } catch (error) {
-        console.error("Error fetching expiry items:", error);
-        toast.error("Failed to load expiry items");
-      }
-    };
-
-    fetchExpiryItems();
-  }, []);
 
   return (
     <ProtectedRoute>

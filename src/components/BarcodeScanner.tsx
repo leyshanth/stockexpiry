@@ -61,19 +61,28 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
         setScanning(true);
 
         // Add event listener for barcode detection
-        Quagga.onDetected((result) => {
+        Quagga.onDetected((result: any) => {
           if (result && result.codeResult) {
             const code = result.codeResult.code;
             console.log("Barcode detected:", code);
             
             // Stop scanner and call the callback
             Quagga.stop();
-            onDetected(code);
+            // Make sure code is a string before passing it to onDetected
+            if (typeof code === 'string') {
+              onDetected(code);
+            } else if (code) {
+              // If code is not a string but is truthy, convert it to string
+              onDetected(String(code));
+            } else {
+              // Handle the case where code is null or undefined
+              toast.error("Failed to read barcode. Please try again.");
+            }
           }
         });
 
         // Add debugging for scanner state
-        Quagga.onProcessed((result) => {
+        Quagga.onProcessed((result: any) => {
           const drawingCtx = Quagga.canvas.ctx.overlay;
           const drawingCanvas = Quagga.canvas.dom.overlay;
 
@@ -85,7 +94,7 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
                 parseInt(drawingCanvas.getAttribute("width")),
                 parseInt(drawingCanvas.getAttribute("height"))
               );
-              result.boxes.filter((box) => box !== result.box).forEach((box) => {
+              result.boxes.filter((box: any) => box !== result.box).forEach((box: any) => {
                 Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, {
                   color: "green",
                   lineWidth: 2,

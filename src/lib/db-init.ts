@@ -33,6 +33,23 @@ export async function initializeDatabase() {
       )
     `);
     
+    // Create products table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        barcode VARCHAR(255),
+        name VARCHAR(255) NOT NULL,
+        price DECIMAL(10, 2),
+        weight VARCHAR(255),
+        category VARCHAR(255),
+        image_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP
+      )
+    `);
+    
     console.log('Database tables initialized successfully');
   } catch (error) {
     console.error('Error initializing database tables:', error);

@@ -26,7 +26,7 @@ interface Product {
 
 export default function ExpiryPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
   const [formData, setFormData] = useState({
     barcode: "",
@@ -41,6 +41,7 @@ export default function ExpiryPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [productFound, setProductFound] = useState(false);
+  const [expiryItems, setExpiryItems] = useState([]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -223,6 +224,30 @@ export default function ExpiryPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchExpiryItems = async () => {
+      try {
+        const response = await fetch("/api/expiry");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch expiry items");
+        }
+        
+        const data = await response.json();
+        
+        // Check if the response has an 'items' property (new format)
+        const items = data.items || data;
+        
+        setExpiryItems(items);
+      } catch (error) {
+        console.error("Error fetching expiry items:", error);
+        toast.error("Failed to load expiry items");
+      }
+    };
+
+    fetchExpiryItems();
+  }, []);
 
   return (
     <ProtectedRoute>

@@ -39,24 +39,30 @@ export default function HomePage() {
   });
 
   useEffect(() => {
+    const fetchExpiryItems = async () => {
+      try {
+        const response = await fetch("/api/expiry");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch expiry items");
+        }
+        
+        const data = await response.json();
+        
+        // Check if the response has an 'items' property (new format)
+        const items = data.items || data;
+        
+        setExpiryItems(items);
+      } catch (error) {
+        console.error("Error fetching expiry items:", error);
+        toast.error("Failed to load expiry items");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchExpiryItems();
   }, []);
-
-  const fetchExpiryItems = async () => {
-    try {
-      const response = await fetch("/api/expiry");
-      if (!response.ok) {
-        throw new Error("Failed to fetch expiry items");
-      }
-      const data = await response.json();
-      setExpiryItems(data);
-    } catch (error) {
-      console.error("Error fetching expiry items:", error);
-      toast.error("Failed to fetch expiry items");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDeleteItem = async (id: number) => {
     if (!confirm("Are you sure you want to delete this item?")) {

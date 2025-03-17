@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Barcode, Plus, Search } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: number;
@@ -38,26 +39,33 @@ export default function ProductsPage() {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch("/api/products");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch products");
+        }
+        
+        const data = await response.json();
+        
+        // Check if the response has an 'items' property (new format)
+        const items = data.items || data;
+        
+        setProducts(items);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        toast.error("Failed to load products");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchProducts();
   }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch("/api/products");
-      if (!response.ok) {
-        throw new Error("Failed to fetch products");
-      }
-      const data = await response.json();
-      setProducts(data);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      toast.error("Failed to fetch products");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -152,7 +160,7 @@ export default function ProductsPage() {
       setShowForm(false);
       
       // Refresh products list
-      fetchProducts();
+      router.refresh();
     } catch (error) {
       console.error("Error adding product:", error);
       toast.error("Failed to add product");

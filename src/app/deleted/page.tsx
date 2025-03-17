@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Trash2, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface DeletedItem {
   id: number;
@@ -23,6 +24,7 @@ interface DeletedItem {
 export default function DeletedPage() {
   const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetchDeletedItems();
@@ -36,10 +38,14 @@ export default function DeletedPage() {
         throw new Error("Failed to fetch deleted items");
       }
       const data = await response.json();
-      setDeletedItems(data);
+      
+      // Check if the response has an 'items' property (new format)
+      const items = data.items || data;
+      
+      setDeletedItems(items);
     } catch (error) {
       console.error("Error fetching deleted items:", error);
-      toast.error("Failed to fetch deleted items");
+      toast.error("Failed to load deleted items");
     } finally {
       setLoading(false);
     }

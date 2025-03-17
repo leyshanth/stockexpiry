@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     }
     
     // Convert to numeric user ID
-    const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+    let numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
     
     // Get request body
     const body = await request.json();

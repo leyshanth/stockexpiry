@@ -375,7 +375,9 @@ export default function HomePage() {
                           <h3 className="font-bold text-lg">{item.item_name}</h3>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {isExpired && (
-                              <Badge variant="destructive">Expired</Badge>
+                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
+                                Expired
+                              </Badge>
                             )}
                             {expiresInDay && !isExpired && (
                               <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">

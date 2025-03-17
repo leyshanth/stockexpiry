@@ -1,19 +1,24 @@
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' 
-    ? { rejectUnauthorized: false } // Allow self-signed certificates in production
-    : false // Disable SSL in development
-});
+let pool: Pool;
 
-// Test the connection
-pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
-});
-
-pool.on('error', (err) => {
-  console.error('PostgreSQL connection error:', err);
-});
+try {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  });
+  
+  // Test the connection
+  pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+      console.error('Database connection error:', err);
+    } else {
+      console.log('Connected to PostgreSQL database');
+    }
+  });
+} catch (error) {
+  console.error('Failed to initialize database pool:', error);
+  throw error;
+}
 
 export default pool; 

@@ -49,10 +49,17 @@ export default function HomePage() {
     
     try {
       setLoading(true);
-      const response = await fetch("/api/expiry");
+      const response = await fetch("/api/expiry", {
+        // Add cache: 'no-store' to prevent caching issues
+        cache: 'no-store',
+        // Add credentials to ensure cookies are sent
+        credentials: 'include'
+      });
       
       if (!response.ok) {
-        throw new Error("Failed to fetch expiry items");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API error:", response.status, errorData);
+        throw new Error(errorData.error || "Failed to fetch expiry items");
       }
       
       const data = await response.json();

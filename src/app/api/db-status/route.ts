@@ -9,40 +9,82 @@ export async function GET() {
     console.log("Testing database connection...");
     const connectionTest = await pool.query("SELECT NOW()");
     
-    // Get current user info
+    // Check table structure
+    const usersColumns = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users'
+    `);
+    
+    const userColumnNames = usersColumns.rows.map(row => row.column_name);
+    console.log("User table columns:", userColumnNames);
+    
+    // Get current user info with dynamic column selection
     const email = 'leyshanth.1177@gmail.com';
-    const userResult = await pool.query(
-      "SELECT id, name, email FROM users WHERE email = $1",
-      [email]
-    );
+    let userResult;
+    
+    if (userColumnNames.includes('name')) {
+      userResult = await pool.query(
+        "SELECT id, name, email FROM users WHERE email = $1",
+        [email]
+      );
+    } else {
+      userResult = await pool.query(
+        "SELECT id, email FROM users WHERE email = $1",
+        [email]
+      );
+    }
     
     const user = userResult.rows.length > 0 ? userResult.rows[0] : null;
     
-    // Count items in tables
-    const expiryCount = await pool.query("SELECT COUNT(*) FROM expiry_items");
-    const productsCount = await pool.query("SELECT COUNT(*) FROM products");
+    // Check if tables exist before querying them
+    const tablesResult = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
     
-    // Get a sample of items
-    const expiryItems = await pool.query(
-      "SELECT id, item_name, expiry_date FROM expiry_items LIMIT 3"
-    );
+    const tables = tablesResult.rows.map(row => row.table_name);
     
-    const products = await pool.query(
-      "SELECT id, name, price FROM products LIMIT 3"
-    );
+    let expiryCount = { count: '0' };
+    let productsCount = { count: '0' };
+    let expiryItems = [];
+    let products = [];
+    
+    if (tables.includes('expiry_items')) {
+      const expiryCountResult = await pool.query("SELECT COUNT(*) FROM expiry_items");
+      expiryCount = expiryCountResult.rows[0];
+      
+      const expiryItemsResult = await pool.query(
+        "SELECT id, item_name, expiry_date FROM expiry_items LIMIT 3"
+      );
+      expiryItems = expiryItemsResult.rows;
+    }
+    
+    if (tables.includes('products')) {
+      const productsCountResult = await pool.query("SELECT COUNT(*) FROM products");
+      productsCount = productsCountResult.rows[0];
+      
+      const productsResult = await pool.query(
+        "SELECT id, name, price FROM products LIMIT 3"
+      );
+      products = productsResult.rows;
+    }
     
     return NextResponse.json({
       success: true,
       connection: "Connected to database",
       timestamp: connectionTest.rows[0].now,
+      tables: tables,
+      userColumns: userColumnNames,
       user: user,
       counts: {
-        expiryItems: parseInt(expiryCount.rows[0].count),
-        products: parseInt(productsCount.rows[0].count)
+        expiryItems: parseInt(expiryCount.count),
+        products: parseInt(productsCount.count)
       },
       samples: {
-        expiryItems: expiryItems.rows,
-        products: products.rows
+        expiryItems: expiryItems,
+        products: products
       }
     });
   } catch (error) {

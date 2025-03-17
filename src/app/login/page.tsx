@@ -15,14 +15,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { status } = useSession();
+  const { status, data: session } = useSession();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/home");
+      window.location.href = "/home"; // Use direct navigation instead of router
     }
-  }, [status, router]);
+  }, [status]);
 
   // Don't make any API calls if we're not authenticated yet
   if (status === "loading") {
@@ -64,11 +64,8 @@ export default function LoginPage() {
       // Successful login
       toast.success("Login successful");
       
-      // Use a slight delay to ensure the session is updated
-      setTimeout(() => {
-        router.push("/home");
-        router.refresh(); // Force a refresh to update the navigation state
-      }, 500);
+      // Use window.location for a full page navigation
+      window.location.href = "/home";
       
     } catch (error) {
       console.error("Login error:", error);

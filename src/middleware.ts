@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from 'next-auth/jwt';
 
 // This function can be marked `async` if using `await` inside
-export function middleware(request: NextRequest) {
-  const session = request.cookies.get('session');
-  const isLoggedIn = !!session?.value;
+export async function middleware(request: NextRequest) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const isAuthenticated = !!token;
   
   // Define public paths that don't require authentication
   const publicPaths = ['/login', '/register'];
@@ -14,14 +15,14 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname === path
   );
   
-  // If not logged in and trying to access a protected route
-  if (!isLoggedIn && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Redirect authenticated users away from auth pages
+  if (isAuthenticated && isPublicPath) {
+    return NextResponse.redirect(new URL('/home', request.url));
   }
   
-  // If logged in and trying to access login/register page
-  if (isLoggedIn && isPublicPath) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // Redirect unauthenticated users to login page
+  if (!isAuthenticated && !isPublicPath && request.nextUrl.pathname !== '/') {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
   
   return NextResponse.next();
@@ -29,15 +30,5 @@ export function middleware(request: NextRequest) {
 
 // See "Matching Paths" below to learn more
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (icons, manifest.json)
-     * - API routes that need to be dynamic
-     */
-    '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|api/auth).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons).*)'],
 }; 

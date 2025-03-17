@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { DatabaseInitializer } from "@/components/DatabaseInitializer";
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "sonner";
 
 // Define the fonts
 const inter = Inter({

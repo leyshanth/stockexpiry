@@ -10,134 +10,168 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onDetected, onClose }) => {
+export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
-  const [camera, setCamera] = useState<MediaDeviceInfo | null>(null);
-  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [isStarted, setIsStarted] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
 
   useEffect(() => {
-    // Get available cameras
-    navigator.mediaDevices.enumerateDevices()
-      .then(devices => {
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setCameras(videoDevices);
-        if (videoDevices.length > 0) {
-          // Default to the back camera if available (usually the second camera on mobile)
-          const backCamera = videoDevices.find(device => 
-            device.label.toLowerCase().includes('back') || 
-            device.label.toLowerCase().includes('rear')
-          );
-          setCamera(backCamera || videoDevices[0]);
-        }
-      })
-      .catch(err => console.error('Error enumerating devices:', err));
-  }, []);
+    const startScanner = async () => {
+      if (!scannerRef.current) return;
 
-  useEffect(() => {
-    if (camera && scannerRef.current) {
-      Quagga.init({
-        inputStream: {
-          type: 'LiveStream',
-          constraints: {
-            width: { min: 450 },
-            height: { min: 300 },
-            facingMode: 'environment',
-            deviceId: camera.deviceId,
-            aspectRatio: { min: 1, max: 2 }
+      try {
+        await Quagga.init({
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: scannerRef.current,
+            constraints: {
+              width: { min: 640 },
+              height: { min: 480 },
+              facingMode: "environment", // Use the rear camera
+              aspectRatio: { min: 1, max: 2 }
+            },
           },
-          target: scannerRef.current, // This is now safe because we check for null
-          area: { // Only search in the center of the video
-            top: "25%",
-            right: "25%",
-            left: "25%",
-            bottom: "25%",
+          locator: {
+            patchSize: "medium",
+            halfSample: true,
           },
-        },
-        locator: {
-          patchSize: 'medium',
-          halfSample: true
-        },
-        numOfWorkers: navigator.hardwareConcurrency || 4,
-        decoder: {
-          readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader']
-        },
-        locate: true
-      }, (err) => {
-        if (err) {
-          console.error('Error initializing Quagga:', err);
-          setHasError(true);
-          toast.error("Failed to start camera");
-          return;
-        }
-        
-        setIsStarted(true);
+          numOfWorkers: navigator.hardwareConcurrency || 4,
+          decoder: {
+            readers: [
+              "ean_reader",
+              "ean_8_reader",
+              "code_128_reader",
+              "code_39_reader",
+              "code_93_reader",
+              "upc_reader",
+              "upc_e_reader",
+            ],
+            debug: {
+              drawBoundingBox: true,
+              showFrequency: true,
+              drawScanline: true,
+              showPattern: true,
+            },
+          },
+          locate: true,
+        });
+
         Quagga.start();
-        
+        setScanning(true);
+
+        // Add event listener for barcode detection
         Quagga.onDetected((result) => {
           if (result && result.codeResult) {
             const code = result.codeResult.code;
-            if (code) {
-              onDetected(code);
-              Quagga.stop();
+            console.log("Barcode detected:", code);
+            
+            // Stop scanner and call the callback
+            Quagga.stop();
+            onDetected(code);
+          }
+        });
+
+        // Add debugging for scanner state
+        Quagga.onProcessed((result) => {
+          const drawingCtx = Quagga.canvas.ctx.overlay;
+          const drawingCanvas = Quagga.canvas.dom.overlay;
+
+          if (result) {
+            if (result.boxes) {
+              drawingCtx.clearRect(
+                0,
+                0,
+                parseInt(drawingCanvas.getAttribute("width")),
+                parseInt(drawingCanvas.getAttribute("height"))
+              );
+              result.boxes.filter((box) => box !== result.box).forEach((box) => {
+                Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, {
+                  color: "green",
+                  lineWidth: 2,
+                });
+              });
+            }
+
+            if (result.box) {
+              Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, {
+                color: "#00F",
+                lineWidth: 2,
+              });
+            }
+
+            if (result.codeResult && result.codeResult.code) {
+              Quagga.ImageDebug.drawPath(
+                result.line,
+                { x: "x", y: "y" },
+                drawingCtx,
+                { color: "red", lineWidth: 3 }
+              );
             }
           }
         });
-      });
-      
-      return () => {
-        if (isStarted) {
-          try {
-            Quagga.stop();
-          } catch (error) {
-            console.error("Error stopping Quagga:", error);
-          }
-        }
-      };
-    }
-  }, [camera, onDetected]);
 
-  const switchCamera = () => {
-    if (cameras.length > 1) {
-      const currentIndex = cameras.findIndex(c => c.deviceId === camera?.deviceId);
-      const nextIndex = (currentIndex + 1) % cameras.length;
-      setCamera(cameras[nextIndex]);
+      } catch (error) {
+        console.error("Error starting barcode scanner:", error);
+        setCameraError(true);
+        toast.error("Failed to access camera. Please check permissions.");
+      }
+    };
+
+    startScanner();
+
+    // Cleanup function
+    return () => {
+      if (scanning) {
+        Quagga.stop();
+      }
+    };
+  }, [onDetected]);
+
+  const handleManualEntry = () => {
+    const barcode = prompt("Enter barcode manually:");
+    if (barcode && barcode.trim() !== "") {
+      onDetected(barcode.trim());
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-lg w-full max-w-md overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Scan Barcode</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex flex-col items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg w-full max-w-md overflow-hidden">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-bold">Scan Barcode</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Position the barcode within the scanner area
+          </p>
         </div>
         
-        {hasError ? (
+        {cameraError ? (
           <div className="p-8 text-center">
-            <p className="text-red-500 mb-4">Failed to access camera</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Please make sure you've granted camera permissions and are using a secure connection (HTTPS).
+            <p className="text-red-500 mb-4">
+              Camera access failed. Please check your permissions or try manual entry.
             </p>
-            <Button onClick={onClose}>Close Scanner</Button>
+            <Button onClick={handleManualEntry}>Enter Barcode Manually</Button>
           </div>
         ) : (
-          <>
-            <div 
-              ref={scannerRef} 
-              className="relative h-64 w-full overflow-hidden"
-            ></div>
-            <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              Position the barcode within the camera view
+          <div 
+            ref={scannerRef} 
+            className="w-full h-64 md:h-80 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-4/5 h-1/3 border-2 border-red-500 border-dashed rounded-lg"></div>
             </div>
-          </>
+          </div>
         )}
+        
+        <div className="p-4 flex justify-between">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleManualEntry}>
+            Enter Manually
+          </Button>
+        </div>
       </div>
     </div>
   );
-};
-
-export default BarcodeScanner; 
+} 

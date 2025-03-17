@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { cookies } from "next/headers";
 import pool from "@/lib/db";
+
+export const dynamic = 'force-dynamic';
 
 // Get a product by barcode
 export async function GET(
@@ -9,33 +10,46 @@ export async function GET(
   { params }: { params: { barcode: string } }
 ) {
   try {
-    console.log("API: Looking up product with barcode:", params.barcode);
+    const sessionCookie = cookies().get('session');
     
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      console.log("API: Unauthorized request");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
+    const barcode = params.barcode;
+    
+    // Get product by barcode
     const result = await pool.query(
-      "SELECT * FROM products WHERE barcode = $1 AND user_id = $2",
-      [params.barcode, session.user.id]
+      `SELECT * FROM products WHERE user_id = $1 AND barcode = $2`,
+      [userId, barcode]
     );
-
-    console.log("API: Query result rows:", result.rows.length);
-
+    
     if (result.rows.length === 0) {
-      console.log("API: Product not found");
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
     }
-
-    console.log("API: Product found:", result.rows[0].item_name);
+    
     return NextResponse.json(result.rows[0]);
   } catch (error) {
     console.error("Error fetching product by barcode:", error);
     return NextResponse.json(
-      { error: "Failed to fetch product" },
+      { error: "An error occurred" },
       { status: 500 }
     );
   }

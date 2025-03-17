@@ -67,52 +67,41 @@ export default function ExpiryPage() {
     setShowScanner(false);
     setFormData({ ...formData, barcode });
     
-    console.log("Barcode detected:", barcode);
-    
     try {
-      // Try to fetch product details from the database
-      console.log("Fetching product details for barcode:", barcode);
+      // Check if the product exists in the database
       const response = await fetch(`/api/products/barcode/${barcode}`);
       
-      console.log("API response status:", response.status);
-      
       if (response.ok) {
-        const productData = await response.json();
-        console.log("Product data received:", productData);
+        const product = await response.json();
         
-        // Pre-fill the form with product details
+        // Pre-fill form with product data
         setFormData({
-          barcode: productData.barcode,
-          item_name: productData.item_name,
-          price: productData.price.toString(),
-          weight: productData.weight || "",
-          category: productData.category || "",
-          image_url: productData.image_url || "",
-          quantity: "1", // Default quantity
-          expiry_date: format(new Date(), "yyyy-MM-dd"), // Set today's date as default
+          ...formData,
+          barcode: product.barcode,
+          item_name: product.item_name,
+          price: product.price.toString(),
+          weight: product.weight,
+          category: product.category,
+          image_url: product.image_url,
+          quantity: "1",
+          expiry_date: format(new Date(), "yyyy-MM-dd"),
         });
-        
-        // Set image preview if available
-        if (productData.image_url) {
-          setImagePreview(productData.image_url);
-        }
         
         setProductFound(true);
+        setImagePreview(product.image_url);
         
         toast.success("Product found", {
-          description: `Found: ${productData.item_name}`,
+          description: `${product.item_name} loaded from database`,
         });
       } else {
-        // If product not found, just set the barcode
-        console.log("Product not found for barcode:", barcode);
-        setProductFound(false);
-        toast.info("Barcode detected", {
-          description: `Barcode: ${barcode}. No product details found.`,
+        // Product not found, just set the barcode
+        toast.info("Product not found", {
+          description: "Please enter product details manually",
         });
       }
     } catch (error) {
-      console.error("Error fetching product details:", error);
-      toast.error("Error fetching product details");
+      console.error("Error checking product:", error);
+      toast.error("Error checking product");
     }
   };
 

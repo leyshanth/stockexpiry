@@ -61,8 +61,15 @@ export default function LoginPage() {
         return;
       }
       
-      // Redirect to home page on successful login
-      router.push("/home");
+      // Successful login
+      toast.success("Login successful");
+      
+      // Use a slight delay to ensure the session is updated
+      setTimeout(() => {
+        router.push("/home");
+        router.refresh(); // Force a refresh to update the navigation state
+      }, 500);
+      
     } catch (error) {
       console.error("Login error:", error);
       toast.error("An unexpected error occurred");

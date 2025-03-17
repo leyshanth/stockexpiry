@@ -263,13 +263,24 @@ export default function ExpiryPage() {
                       <div className="space-y-2">
                         <Label>Product Image</Label>
                         <div className="border rounded-md p-2 w-full h-40 flex items-center justify-center">
-                          <Image
-                            src={imagePreview}
-                            alt="Product preview"
-                            width={150}
-                            height={150}
-                            className="max-h-full object-contain"
-                          />
+                          {/* Check if it's a base64 image */}
+                          {imagePreview.startsWith('data:') ? (
+                            // For base64 images, use a regular img tag
+                            <img
+                              src={imagePreview}
+                              alt="Product preview"
+                              className="max-h-full object-contain"
+                            />
+                          ) : (
+                            // For regular URLs, use Next.js Image component
+                            <Image
+                              src={imagePreview}
+                              alt="Product preview"
+                              width={150}
+                              height={150}
+                              className="max-h-full object-contain"
+                            />
+                          )}
                         </div>
                       </div>
                     )}

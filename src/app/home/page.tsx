@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isBefore, differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds, differenceInMilliseconds } from "date-fns";
 import { Navbar } from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Filter, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import Image from "next/image";
 
 interface ExpiryItem {
   id: number;
@@ -298,29 +299,148 @@ export default function HomePage() {
           ) : (
             <div className="space-y-4">
               {filteredItems.map((item) => {
-                const { status, label, color } = getExpiryStatus(item.expiry_date);
+                const expiryDate = parseISO(item.expiry_date);
+                const isExpired = isBefore(expiryDate, new Date());
+                const expiresInDays = differenceInDays(expiryDate, new Date());
+                const expiresInWeeks = Math.floor(expiresInDays / 7);
+                const expiresInMonths = Math.floor(expiresInDays / 30);
+                const expiresInYears = Math.floor(expiresInDays / 365);
+                
+                // Check if item expires today
+                const expiresInHours = differenceInHours(expiryDate, new Date());
+                const expiresInMinutes = differenceInMinutes(expiryDate, new Date());
+                const expiresInSeconds = differenceInSeconds(expiryDate, new Date());
+                const expiresInMilliseconds = differenceInMilliseconds(expiryDate, new Date());
+                const expiresInTime = expiresInHours >= 0 && expiresInHours < 24;
+                const expiresInDay = expiresInDays === 0;
+                const expiresInTomorrow = expiresInDays === 1;
+                const expiresInYesterday = expiresInDays === -1;
+                const expiresInTwoWeeks = expiresInDays <= 14 && expiresInDays > 0;
+                const expiresInThreeWeeks = expiresInDays <= 21 && expiresInDays > 14;
+                const expiresInFourWeeks = expiresInDays <= 28 && expiresInDays > 21;
+                const expiresInFiveWeeks = expiresInDays <= 35 && expiresInDays > 28;
+                const expiresInSixWeeks = expiresInDays <= 42 && expiresInDays > 35;
+                const expiresInSevenWeeks = expiresInDays <= 49 && expiresInDays > 42;
+                const expiresInEightWeeks = expiresInDays <= 56 && expiresInDays > 49;
+                const expiresInNineWeeks = expiresInDays <= 63 && expiresInDays > 56;
+                const expiresInTenWeeks = expiresInDays <= 70 && expiresInDays > 63;
+                const expiresInElevenWeeks = expiresInDays <= 77 && expiresInDays > 70;
+                const expiresInTwelveWeeks = expiresInDays <= 84 && expiresInDays > 77;
+                const expiresInThirteenWeeks = expiresInDays <= 91 && expiresInDays > 84;
+                const expiresInFourteenWeeks = expiresInDays <= 98 && expiresInDays > 91;
+                const expiresInFifteenWeeks = expiresInDays <= 105 && expiresInDays > 98;
+                const expiresInSixteenWeeks = expiresInDays <= 112 && expiresInDays > 105;
+                const expiresInSeventeenWeeks = expiresInDays <= 119 && expiresInDays > 112;
+                const expiresInEighteenWeeks = expiresInDays <= 126 && expiresInDays > 119;
+                const expiresInNineteenWeeks = expiresInDays <= 133 && expiresInDays > 126;
+                const expiresInTwentyWeeks = expiresInDays <= 140 && expiresInDays > 133;
+                const expiresInTwentyOneWeeks = expiresInDays <= 147 && expiresInDays > 140;
+                const expiresInTwentyTwoWeeks = expiresInDays <= 154 && expiresInDays > 147;
+                const expiresInTwentyThreeWeeks = expiresInDays <= 161 && expiresInDays > 154;
+                const expiresInTwentyFourWeeks = expiresInDays <= 168 && expiresInDays > 161;
+                const expiresInTwentyFiveWeeks = expiresInDays <= 175 && expiresInDays > 168;
+                const expiresInTwentySixWeeks = expiresInDays <= 182 && expiresInDays > 175;
+                const expiresInTwentySevenWeeks = expiresInDays <= 189 && expiresInDays > 182;
+                const expiresInTwentyEightWeeks = expiresInDays <= 196 && expiresInDays > 189;
+                const expiresInTwentyNineWeeks = expiresInDays <= 203 && expiresInDays > 196;
+                const expiresInThirtyWeeks = expiresInDays <= 210 && expiresInDays > 203;
+                const expiresInThirtyOneWeeks = expiresInDays <= 217 && expiresInDays > 210;
+                const expiresInThirtyTwoWeeks = expiresInDays <= 224 && expiresInDays > 217;
+                const expiresInThirtyThreeWeeks = expiresInDays <= 231 && expiresInDays > 224;
+                const expiresInThirtyFourWeeks = expiresInDays <= 238 && expiresInDays > 231;
+                const expiresInThirtyFiveWeeks = expiresInDays <= 245 && expiresInDays > 238;
+                const expiresInThirtySixWeeks = expiresInDays <= 252 && expiresInDays > 245;
+                const expiresInThirtySevenWeeks = expiresInDays <= 259 && expiresInDays > 252;
+                const expiresInThirtyEightWeeks = expiresInDays <= 266 && expiresInDays > 259;
+                const expiresInThirtyNineWeeks = expiresInDays <= 273 && expiresInDays > 266;
+                const expiresInFortyWeeks = expiresInDays <= 280 && expiresInDays > 273;
+                const expiresInFortyOneWeeks = expiresInDays <= 287 && expiresInDays > 280;
+                const expiresInFortyTwoWeeks = expiresInDays <= 294 && expiresInDays > 287;
+                const expiresInFortyThreeWeeks = expiresInDays <= 301 && expiresInDays > 294;
+                const expiresInFortyFourWeeks = expiresInDays <= 308 && expiresInDays > 301;
+                const expiresInFortyFiveWeeks = expiresInDays <= 315 && expiresInDays > 308;
+                const expiresInFortySixWeeks = expiresInDays <= 322 && expiresInDays > 315;
+                const expiresInFortySevenWeeks = expiresInDays <= 329 && expiresInDays > 322;
+                const expiresInFortyEightWeeks = expiresInDays <= 336 && expiresInDays > 329;
+                const expiresInFortyNineWeeks = expiresInDays <= 343 && expiresInDays > 336;
+                const expiresInFiftyWeeks = expiresInDays <= 350 && expiresInDays > 343;
+                const expiresInFiftyOneWeeks = expiresInDays <= 357 && expiresInDays > 350;
+                const expiresInFiftyTwoWeeks = expiresInDays <= 364 && expiresInDays > 357;
                 
                 return (
-                  <Card key={item.id} className="overflow-hidden">
+                  <Card key={item.id} className={`overflow-hidden ${isExpired ? 'border-red-500' : expiresInDay ? 'border-orange-500' : expiresInTwoWeeks ? 'border-yellow-500' : ''}`}>
                     <CardContent className="p-4">
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-bold text-lg">{item.item_name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">Barcode: {item.barcode}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">Quantity: {item.quantity}</p>
-                          <div className="flex items-center mt-1">
-                            <span className={`inline-block w-3 h-3 rounded-full ${color} mr-2`}></span>
-                            <p className="text-sm">
-                              Expires: {format(parseISO(item.expiry_date), 'MMM dd, yyyy')}
-                            </p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {isExpired && (
+                              <Badge variant="destructive">Expired</Badge>
+                            )}
+                            {expiresInDay && !isExpired && (
+                              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+                                Expires Today
+                              </Badge>
+                            )}
+                            {expiresInTomorrow && (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                                Expires Tomorrow
+                              </Badge>
+                            )}
+                            {expiresInTwoWeeks && !expiresInDay && !expiresInTomorrow && (
+                              <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
+                                Expires Soon
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="bg-gray-100 dark:bg-gray-700">
+                              {item.category || "Uncategorized"}
+                            </Badge>
                           </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            Expires: {format(expiryDate, "PPP")}
+                          </p>
+                          <p className="text-sm mt-1">
+                            Quantity: {item.quantity} {item.weight && `• ${item.weight}`}
+                          </p>
+                          {item.price && (
+                            <p className="text-sm mt-1">
+                              Price: ${parseFloat(item.price).toFixed(2)}
+                            </p>
+                          )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
+                        
+                        {item.image_url && (
+                          <div className="ml-4 w-20 h-20 flex-shrink-0">
+                            {/* Check if it's a base64 image */}
+                            {item.image_url.startsWith('data:') ? (
+                              // For base64 images, use a regular img tag
+                              <img
+                                src={item.image_url}
+                                alt={item.item_name}
+                                className="w-full h-full object-cover rounded-md"
+                              />
+                            ) : (
+                              // For regular URLs, use Next.js Image component
+                              <Image
+                                src={item.image_url}
+                                alt={item.item_name}
+                                width={80}
+                                height={80}
+                                className="w-full h-full object-cover rounded-md"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          variant="destructive"
+                          size="sm"
                           onClick={() => handleDeleteItem(item.id)}
                         >
-                          <Trash2 size={18} className="text-red-500" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
                         </Button>
                       </div>
                     </CardContent>

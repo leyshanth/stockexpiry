@@ -14,6 +14,8 @@ export default function ProtectedRoute({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log("ProtectedRoute - Session status:", status, "Session:", session);
+    
     if (status === "loading") {
       return; // Wait for the session to load
     }
@@ -21,7 +23,16 @@ export default function ProtectedRoute({
     setIsLoading(false);
     
     if (!session) {
+      console.log("No session found, redirecting to login page");
       router.push("/login");
+      
+      // Force a hard navigation if router.push doesn't work
+      setTimeout(() => {
+        if (window.location.pathname !== "/login") {
+          console.log("Forcing navigation to login page");
+          window.location.href = "/login";
+        }
+      }, 500);
     }
   }, [session, status, router]);
 

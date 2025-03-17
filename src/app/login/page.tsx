@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -21,27 +20,33 @@ export default function LoginPage() {
     
     try {
       setLoading(true);
+      console.log("Attempting login with:", { email });
       
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      // Use a direct API call instead of signIn
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
       });
       
-      if (result?.error) {
+      const data = await response.json();
+      console.log("Login response:", data);
+      
+      if (!response.ok) {
         toast.error("Login failed", {
-          description: result.error,
+          description: data.error || "Invalid credentials",
         });
         return;
       }
       
       toast.success("Login successful");
       
-      // Add a small delay before navigation to ensure the toast is shown
+      // Navigate to home page
       setTimeout(() => {
-        router.push("/");
-        router.refresh(); // Force a refresh to update the auth state
-      }, 500);
+        window.location.href = "/";
+      }, 1000);
       
     } catch (error) {
       console.error("Login error:", error);

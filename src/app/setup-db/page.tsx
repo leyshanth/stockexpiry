@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { toast } from "sonner";
 
 export default function SetupDbPage() {
   const { toast } = useToast();
@@ -27,19 +28,11 @@ export default function SetupDbPage() {
         setDbStatus(data);
       } else {
         console.error('Failed to check database status:', data.error);
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to check database status',
-          variant: 'destructive',
-        });
+        toast.error(data.error || 'Failed to check database status');
       }
     } catch (error) {
       console.error('Error checking database status:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to connect to the server',
-        variant: 'destructive',
-      });
+      toast.error('Failed to connect to the server');
     } finally {
       setLoading(false);
     }
@@ -54,28 +47,17 @@ export default function SetupDbPage() {
       const data = await response.json();
       
       if (data.success) {
-        toast({
-          title: 'Success',
-          description: data.message || `${actionName} completed successfully`,
-        });
+        toast.success(data.message || `${actionName} completed successfully`);
         
         // Refresh database status
         await checkDatabaseStatus();
       } else {
         console.error(`Failed to ${actionName.toLowerCase()}:`, data.error);
-        toast({
-          title: 'Error',
-          description: data.error || `Failed to ${actionName.toLowerCase()}`,
-          variant: 'destructive',
-        });
+        toast.error(data.error || `Failed to ${actionName.toLowerCase()}`);
       }
     } catch (error) {
       console.error(`Error during ${actionName.toLowerCase()}:`, error);
-      toast({
-        title: 'Error',
-        description: 'Failed to connect to the server',
-        variant: 'destructive',
-      });
+      toast.error('Failed to connect to the server');
     } finally {
       setActionInProgress(false);
       setActionMessage('');

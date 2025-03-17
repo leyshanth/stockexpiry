@@ -8,14 +8,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from "sonner";
 import { Loader2 } from 'lucide-react';
 import BarcodeScanner from '@/components/BarcodeScanner';
 
 export default function ProductsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
@@ -49,19 +48,11 @@ export default function ProductsPage() {
         setProducts(data.items || []);
       } else {
         console.error('Failed to fetch products:', data.error);
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to fetch products',
-          variant: 'destructive',
-        });
+        toast.error(data.error || 'Failed to fetch products');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to connect to the server',
-        variant: 'destructive',
-      });
+      toast.error('Failed to connect to the server');
     } finally {
       setLoading(false);
     }
@@ -81,10 +72,7 @@ export default function ProductsPage() {
       barcode: barcode
     });
     setIsScannerOpen(false);
-    toast({
-      title: 'Barcode Scanned',
-      description: `Barcode ${barcode} detected`,
-    });
+    toast.success(`Barcode ${barcode} detected`);
   };
   
   const handleSubmit = async (e) => {
@@ -104,10 +92,7 @@ export default function ProductsPage() {
       const data = await response.json();
       
       if (data.success) {
-        toast({
-          title: 'Success',
-          description: 'Product added successfully',
-        });
+        toast.success('Product added successfully');
         
         // Reset form
         setFormData({
@@ -123,19 +108,11 @@ export default function ProductsPage() {
         fetchProducts();
       } else {
         console.error('Failed to add product:', data.error);
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to add product',
-          variant: 'destructive',
-        });
+        toast.error(data.error || 'Failed to add product');
       }
     } catch (error) {
       console.error('Error adding product:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to connect to the server',
-        variant: 'destructive',
-      });
+      toast.error('Failed to connect to the server');
     } finally {
       setIsSubmitting(false);
     }

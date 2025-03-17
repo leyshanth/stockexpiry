@@ -247,7 +247,10 @@ export default function ProductsPage() {
                 
                 {isScannerOpen && (
                   <div className="mt-4">
-                    <BarcodeScanner onDetected={handleBarcodeDetected} />
+                    <BarcodeScanner 
+                      onDetected={handleBarcodeDetected} 
+                      onClose={() => setIsScannerOpen(false)} 
+                    />
                   </div>
                 )}
                 

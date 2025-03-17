@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 interface BarcodeScannerProps {
   onDetected: (barcode: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
@@ -173,9 +173,11 @@ export default function BarcodeScanner({ onDetected, onClose }: BarcodeScannerPr
         )}
         
         <div className="p-4 flex justify-between">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+          {onClose && (
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
           <Button onClick={handleManualEntry}>
             Enter Manually
           </Button>

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { DatabaseInitializer } from "@/components/DatabaseInitializer";
+import { Toaster } from "@/components/ui/toaster"
 
 // Define the fonts
 const inter = Inter({
@@ -42,6 +43,7 @@ export default function RootLayout({
           <DatabaseInitializer />
           {children}
         </Providers>
+        <Toaster />
       </body>
     </html>
   );

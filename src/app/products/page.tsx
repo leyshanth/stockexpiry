@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,34 @@ import { toast } from "sonner";
 import { Loader2 } from 'lucide-react';
 import BarcodeScanner from '@/components/BarcodeScanner';
 
+// Define the Product type
+interface Product {
+  id: number;
+  name: string;
+  price: string | number;
+  weight?: string;
+  category?: string;
+  barcode?: string;
+  image_url?: string;
+}
+
+// Define the form data type
+interface ProductFormData {
+  barcode: string;
+  name: string;
+  price: string;
+  weight: string;
+  category: string;
+  image_url: string;
+}
+
 export default function ProductsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [formData, setFormData] = useState({
+  const [products, setProducts] = useState<Product[]>([]);
+  const [formData, setFormData] = useState<ProductFormData>({
     barcode: '',
     name: '',
     price: '',
@@ -58,7 +79,7 @@ export default function ProductsPage() {
     }
   };
   
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -66,7 +87,7 @@ export default function ProductsPage() {
     });
   };
   
-  const handleBarcodeDetected = (barcode) => {
+  const handleBarcodeDetected = (barcode: string) => {
     setFormData({
       ...formData,
       barcode: barcode
@@ -75,7 +96,7 @@ export default function ProductsPage() {
     toast.success(`Barcode ${barcode} detected`);
   };
   
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     
@@ -267,9 +288,10 @@ export default function ProductsPage() {
                             src={product.image_url} 
                             alt={product.name} 
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://placehold.co/400x300?text=No+Image';
+                            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = 'https://placehold.co/400x300?text=No+Image';
                             }}
                           />
                         </div>
@@ -283,7 +305,7 @@ export default function ProductsPage() {
                       </CardHeader>
                       <CardFooter className="p-4 pt-0 flex justify-between">
                         {product.price ? (
-                          <span className="font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                          <span className="font-bold">${parseFloat(product.price.toString()).toFixed(2)}</span>
                         ) : (
                           <span>No price</span>
                         )}

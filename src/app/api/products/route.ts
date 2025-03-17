@@ -40,7 +40,7 @@ export async function GET() {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS products (
           id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id),
+          user_id INTEGER,
           barcode VARCHAR(255),
           name VARCHAR(255),
           price DECIMAL(10, 2),
@@ -129,6 +129,35 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log("Creating product with data:", body);
     
+    // Check if the user exists
+    const userExists = await pool.query(
+      "SELECT EXISTS (SELECT FROM users WHERE id = $1)",
+      [numericUserId]
+    );
+    
+    if (!userExists.rows[0].exists) {
+      console.log(`User with ID ${numericUserId} doesn't exist, using default user ID 1`);
+      
+      // Check if user 1 exists
+      const user1Exists = await pool.query(
+        "SELECT EXISTS (SELECT FROM users WHERE id = 1)"
+      );
+      
+      if (!user1Exists.rows[0].exists) {
+        // Create user 1
+        const hashedPassword = '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm'; // 'password123'
+        await pool.query(`
+          INSERT INTO users (id, name, email, password)
+          VALUES (1, 'Default User', 'default@example.com', $1)
+        `, [hashedPassword]);
+        
+        console.log("Created default user with ID 1");
+      }
+      
+      // Use user ID 1 instead
+      numericUserId = 1;
+    }
+    
     // Check if the products table has the correct schema
     const columnCheck = await pool.query(`
       SELECT column_name 
@@ -205,6 +234,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ item: result.rows[0] });
   } catch (error) {
     console.error("Error creating product:", error);
+    
+    // Check if it's a foreign key constraint error
+    if (error instanceof Error && error.message.includes('violates foreign key constraint')) {
+      console.log("Foreign key constraint error, suggesting fix");
+      return NextResponse.json(
+        { 
+          error: "Failed to create product due to foreign key constraint", 
+          details: error.message,
+          suggestion: "Try visiting /api/fix-foreign-keys to fix the foreign key constraints"
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         error: "Failed to create product", 

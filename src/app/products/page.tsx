@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+import BarcodeScanner from '@/components/BarcodeScanner';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

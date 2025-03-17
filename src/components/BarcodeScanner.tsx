@@ -10,7 +10,7 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onDetected, onClose }) => {
+export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onDetected, onClose }) => {
   const scannerRef = useRef<HTMLDivElement>(null);
   const [camera, setCamera] = useState<MediaDeviceInfo | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);

@@ -23,6 +23,29 @@ export async function GET() {
     
     if (!userId) {
       console.log("No user ID in session");
+      
+      // Try to get the user ID from the email as a fallback
+      if (session.user?.email) {
+        const userResult = await pool.query(
+          "SELECT id FROM users WHERE email = $1",
+          [session.user.email]
+        );
+        
+        if (userResult.rows.length > 0) {
+          const fetchedUserId = userResult.rows[0].id;
+          console.log(`Found user ID ${fetchedUserId} from email ${session.user.email}`);
+          
+          // Get expiry items using the fetched user ID
+          const result = await pool.query(
+            "SELECT * FROM expiry_items WHERE user_id = $1 AND deleted_at IS NULL ORDER BY expiry_date ASC",
+            [fetchedUserId]
+          );
+          
+          console.log(`Found ${result.rows.length} expiry items for user ${fetchedUserId}`);
+          return NextResponse.json({ items: result.rows });
+        }
+      }
+      
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     

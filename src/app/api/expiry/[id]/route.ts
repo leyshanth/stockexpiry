@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import pool from "@/lib/db";
+import { cookies } from "next/headers";
 
 // Get a specific expiry item
 export async function GET(
@@ -72,68 +73,84 @@ export async function PUT(
 }
 
 // Delete an expiry item
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionCookie = cookies().get('session');
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
-    const id = parseInt(params.id);
-
-    if (isNaN(id)) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    const id = params.id;
+    
+    // First, check if the item belongs to the user
+    const checkResult = await pool.query(
+      "SELECT * FROM expiry_items WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: "Item not found or you don't have permission to delete it" },
+        { status: 404 }
+      );
     }
-
+    
+    // Get the item data before deleting
+    const item = checkResult.rows[0];
+    
+    // Start a transaction
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
-      // Get the expiry item data before deleting
-      const expiryResult = await client.query(
-        "SELECT * FROM expiry_items WHERE id = $1 AND user_id = $2",
-        [id, session.user.id]
-      );
-      
-      if (expiryResult.rows.length === 0) {
-        return NextResponse.json({ error: "Expiry item not found" }, { status: 404 });
-      }
-      
-      const expiryItem = expiryResult.rows[0];
-      
-      // Move to deleted_expiry_items table
+      // Move to deleted_items table
       await client.query(
-        `INSERT INTO deleted_expiry_items 
-         (id, user_id, barcode, item_name, price, weight, category, image_url, quantity, expiry_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        `INSERT INTO deleted_items 
+         (user_id, barcode, item_name, price, weight, category, image_url, quantity, expiry_date, deleted_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
         [
-          expiryItem.id,
-          session.user.id,
-          expiryItem.barcode,
-          expiryItem.item_name,
-          expiryItem.price,
-          expiryItem.weight,
-          expiryItem.category,
-          expiryItem.image_url,
-          expiryItem.quantity,
-          expiryItem.expiry_date
+          userId, 
+          item.barcode, 
+          item.item_name, 
+          item.price, 
+          item.weight, 
+          item.category, 
+          item.image_url, 
+          item.quantity, 
+          item.expiry_date
         ]
       );
       
-      // Delete from expiry_items table
+      // Delete from expiry_items
       await client.query(
-        "DELETE FROM expiry_items WHERE id = $1 AND user_id = $2",
-        [id, session.user.id]
+        "DELETE FROM expiry_items WHERE id = $1",
+        [id]
       );
       
       await client.query('COMMIT');
       
-      return NextResponse.json({ message: "Expiry item deleted successfully" });
+      return NextResponse.json({ success: true });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

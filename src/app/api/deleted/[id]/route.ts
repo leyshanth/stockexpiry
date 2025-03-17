@@ -1,108 +1,105 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { cookies } from "next/headers";
 import pool from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
+// Restore a deleted item
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionCookie = cookies().get('session');
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
+    const id = params.id;
     const { type } = await request.json();
-    const id = parseInt(params.id);
-
-    if (isNaN(id)) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    
+    // First, check if the item belongs to the user
+    const checkResult = await pool.query(
+      "SELECT * FROM deleted_items WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: "Item not found or you don't have permission to restore it" },
+        { status: 404 }
+      );
     }
-
+    
+    // Get the item data
+    const item = checkResult.rows[0];
+    
+    // Start a transaction
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
       if (type === 'product') {
-        // Get the product data
-        const productResult = await client.query(
-          `SELECT * FROM deleted_products WHERE id = $1 AND user_id = $2`,
-          [id, session.user.id]
-        );
-        
-        if (productResult.rows.length === 0) {
-          return NextResponse.json({ error: "Product not found" }, { status: 404 });
-        }
-        
-        const product = productResult.rows[0];
-        
-        // Restore the product
+        // Restore to products table
         await client.query(
-          `INSERT INTO products (id, user_id, barcode, item_name, price, weight, category, image_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO products 
+           (user_id, barcode, item_name, price, weight, category, image_url) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
-            product.id,
-            session.user.id,
-            product.barcode,
-            product.item_name,
-            product.price,
-            product.weight,
-            product.category,
-            product.image_url
+            userId, 
+            item.barcode, 
+            item.item_name, 
+            item.price, 
+            item.weight, 
+            item.category, 
+            item.image_url
           ]
-        );
-        
-        // Delete from deleted_products
-        await client.query(
-          `DELETE FROM deleted_products WHERE id = $1 AND user_id = $2`,
-          [id, session.user.id]
         );
       } else if (type === 'expiry') {
-        // Get the expiry item data
-        const expiryResult = await client.query(
-          `SELECT * FROM deleted_expiry_items WHERE id = $1 AND user_id = $2`,
-          [id, session.user.id]
-        );
-        
-        if (expiryResult.rows.length === 0) {
-          return NextResponse.json({ error: "Expiry item not found" }, { status: 404 });
-        }
-        
-        const expiryItem = expiryResult.rows[0];
-        
-        // Restore the expiry item
+        // Restore to expiry_items table
         await client.query(
-          `INSERT INTO expiry_items (id, user_id, barcode, item_name, price, weight, category, image_url, quantity, expiry_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          `INSERT INTO expiry_items 
+           (user_id, barcode, item_name, price, weight, category, image_url, quantity, expiry_date) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
-            expiryItem.id,
-            session.user.id,
-            expiryItem.barcode,
-            expiryItem.item_name,
-            expiryItem.price,
-            expiryItem.weight,
-            expiryItem.category,
-            expiryItem.image_url,
-            expiryItem.quantity,
-            expiryItem.expiry_date
+            userId, 
+            item.barcode, 
+            item.item_name, 
+            item.price, 
+            item.weight, 
+            item.category, 
+            item.image_url, 
+            item.quantity, 
+            item.expiry_date
           ]
         );
-        
-        // Delete from deleted_expiry_items
-        await client.query(
-          `DELETE FROM deleted_expiry_items WHERE id = $1 AND user_id = $2`,
-          [id, session.user.id]
-        );
-      } else {
-        return NextResponse.json({ error: "Invalid item type" }, { status: 400 });
       }
+      
+      // Delete from deleted_items
+      await client.query(
+        "DELETE FROM deleted_items WHERE id = $1",
+        [id]
+      );
       
       await client.query('COMMIT');
       
-      return NextResponse.json({ message: "Item restored successfully" });
+      return NextResponse.json({ success: true });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -118,41 +115,54 @@ export async function POST(
   }
 }
 
+// Permanently delete an item
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const id = parseInt(params.id);
-
-    if (isNaN(id)) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
-    }
-
-    const client = await pool.connect();
+    const sessionCookie = cookies().get('session');
     
-    try {
-      // Try to delete from both tables
-      await client.query(
-        `DELETE FROM deleted_products WHERE id = $1 AND user_id = $2`,
-        [id, session.user.id]
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
       );
-      
-      await client.query(
-        `DELETE FROM deleted_expiry_items WHERE id = $1 AND user_id = $2`,
-        [id, session.user.id]
-      );
-      
-      return NextResponse.json({ message: "Item permanently deleted" });
-    } finally {
-      client.release();
     }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
+    }
+
+    const id = params.id;
+    
+    // First, check if the item belongs to the user
+    const checkResult = await pool.query(
+      "SELECT * FROM deleted_items WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: "Item not found or you don't have permission to delete it" },
+        { status: 404 }
+      );
+    }
+    
+    // Delete from deleted_items
+    await pool.query(
+      "DELETE FROM deleted_items WHERE id = $1",
+      [id]
+    );
+    
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error permanently deleting item:", error);
     return NextResponse.json(

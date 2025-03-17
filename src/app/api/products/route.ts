@@ -46,10 +46,24 @@ export async function GET() {
 // Create a new product
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionCookie = cookies().get('session');
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
     }
 
     const { barcode, item_name, price, weight, category, image_url } = await request.json();
@@ -59,7 +73,7 @@ export async function POST(request: Request) {
        (user_id, barcode, item_name, price, weight, category, image_url) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
-      [session.user.id, barcode, item_name, price, weight, category, image_url]
+      [userId, barcode, item_name, price, weight, category, image_url]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });

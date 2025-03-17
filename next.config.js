@@ -13,10 +13,6 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
-  // Disable static generation for all routes by default
-  experimental: {
-    appDir: true,
-  },
 };
 
 module.exports = withPWA(nextConfig); 

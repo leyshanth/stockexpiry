@@ -19,7 +19,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      setName(user.name || "");
+      setName(user?.name || "");
       setEmail(user.email || "");
     }
   }, [user]);

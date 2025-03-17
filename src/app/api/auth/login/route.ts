@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     });
     
     return NextResponse.json(
-      { success: true, user: { id: user.id, email: user.email } },
+      { success: true, user: { id: user.id, email: user.email, name: user.name } },
       { status: 200 }
     );
   } catch (error) {

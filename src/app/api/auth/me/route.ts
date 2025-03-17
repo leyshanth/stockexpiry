@@ -4,6 +4,12 @@ import pool from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
 
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
+
 export async function GET() {
   try {
     const sessionCookie = cookies().get('session');
@@ -33,7 +39,7 @@ export async function GET() {
       [userId]
     );
     
-    const user = result.rows[0];
+    const user: User = result.rows[0];
     
     if (!user) {
       return NextResponse.json(

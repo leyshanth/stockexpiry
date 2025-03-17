@@ -4,6 +4,11 @@ import pool from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
 
+interface ProfileData {
+  name?: string;
+  email: string;
+}
+
 export async function PUT(request: Request) {
   try {
     const sessionCookie = cookies().get('session');
@@ -27,7 +32,7 @@ export async function PUT(request: Request) {
     }
     
     // Get request body
-    const { name, email } = await request.json();
+    const { name, email }: ProfileData = await request.json();
     
     if (!email) {
       return NextResponse.json(
@@ -54,7 +59,7 @@ export async function PUT(request: Request) {
     // Update user profile
     await pool.query(
       "UPDATE users SET name = $1, email = $2 WHERE id = $3",
-      [name, email, userId]
+      [name || "", email, userId]
     );
     
     return NextResponse.json({ success: true });

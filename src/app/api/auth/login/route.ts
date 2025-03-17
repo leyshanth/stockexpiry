@@ -5,6 +5,12 @@ import { cookies } from "next/headers";
 
 export const dynamic = 'force-dynamic';
 
+interface UserData {
+  id: string;
+  email: string;
+  name?: string;
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -54,7 +60,7 @@ export async function POST(request: Request) {
     });
     
     // Return user data without the name property if it doesn't exist
-    const userData = {
+    const userData: UserData = {
       id: user.id,
       email: user.email
     };

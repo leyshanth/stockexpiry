@@ -1,394 +1,330 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Navbar } from "@/components/Navbar";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
 import BarcodeScanner from '@/components/BarcodeScanner';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { Barcode, Plus, Search } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-
-interface Product {
-  id: number;
-  barcode: string;
-  item_name: string;
-  price: number;
-  weight: string;
-  category: string;
-  image_url: string;
-}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState({
-    barcode: "",
-    item_name: "",
-    price: "",
-    weight: "",
-    category: "",
-    image_url: "",
-  });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const [fetchTrigger, setFetchTrigger] = useState(0);
-
-  // Use useCallback to prevent the function from being recreated on every render
-  const fetchProducts = useCallback(async () => {
+  const { toast } = useToast();
+  
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [formData, setFormData] = useState({
+    barcode: '',
+    name: '',
+    price: '',
+    weight: '',
+    category: '',
+    image_url: ''
+  });
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    } else if (status === 'authenticated') {
+      fetchProducts();
+    }
+  }, [status, router]);
+  
+  const fetchProducts = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch("/api/products");
+      // Use the simple product API instead
+      const response = await fetch('/api/simple-product');
+      const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error("Failed to fetch products");
+      if (data.success) {
+        setProducts(data.items || []);
+      } else {
+        console.error('Failed to fetch products:', data.error);
+        toast({
+          title: 'Error',
+          description: data.error || 'Failed to fetch products',
+          variant: 'destructive',
+        });
       }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to connect to the server',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+  
+  const handleBarcodeDetected = (barcode) => {
+    setFormData({
+      ...formData,
+      barcode: barcode
+    });
+    setIsScannerOpen(false);
+    toast({
+      title: 'Barcode Scanned',
+      description: `Barcode ${barcode} detected`,
+    });
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      // Use the simple product API instead
+      const response = await fetch('/api/simple-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
       
       const data = await response.json();
       
-      // Check if the response has an 'items' property (new format)
-      const items = data.items || data;
-      
-      setProducts(items);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Check if there's a pending barcode from the expiry page
-    const pendingBarcode = localStorage.getItem('pendingBarcode');
-    if (pendingBarcode) {
-      // Pre-fill the form with the barcode
-      setFormData({
-        ...formData,
-        barcode: pendingBarcode
-      });
-      // Show the form
-      setShowForm(true);
-      // Clear the pending barcode
-      localStorage.removeItem('pendingBarcode');
-      
-      toast.info("Please add this product first", {
-        description: `Barcode: ${pendingBarcode}`
-      });
-    }
-    
-    fetchProducts();
-  }, [fetchTrigger, fetchProducts]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      
-      // Check file size (limit to 5MB to avoid database issues)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image is too large", {
-          description: "Please select an image smaller than 5MB"
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Product added successfully',
         });
-        return;
+        
+        // Reset form
+        setFormData({
+          barcode: '',
+          name: '',
+          price: '',
+          weight: '',
+          category: '',
+          image_url: ''
+        });
+        
+        // Refresh products list
+        fetchProducts();
+      } else {
+        console.error('Failed to add product:', data.error);
+        toast({
+          title: 'Error',
+          description: data.error || 'Failed to add product',
+          variant: 'destructive',
+        });
       }
-      
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImagePreview(base64String);
-        // Store the base64 string in the form data
-        setFormData({ ...formData, image_url: base64String });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleBarcodeDetected = (barcode: string) => {
-    setShowScanner(false);
-    setFormData({ ...formData, barcode });
-    toast.success("Barcode detected", {
-      description: `Barcode: ${barcode}`,
-    });
-  };
-
-  const handleScanBarcode = () => {
-    // Check if the device has camera access
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // If no camera access, show a prompt for manual entry
-      const barcode = prompt("Enter barcode manually:");
-      if (barcode) {
-        handleBarcodeDetected(barcode);
-      }
-      return;
-    }
-    
-    // Otherwise show the scanner
-    setShowScanner(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setLoading(true);
-      
-      // No need for special image handling - the base64 string is already in formData.image_url
-      
-      const productData = {
-        barcode: formData.barcode,
-        item_name: formData.item_name,
-        price: parseFloat(formData.price) || 0,
-        weight: formData.weight,
-        category: formData.category,
-        image_url: formData.image_url, // This is now the base64 string
-      };
-      
-      const response = await fetch("/api/products", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productData),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to add product");
-      }
-      
-      toast.success("Product added successfully");
-      
-      // Reset form
-      setFormData({
-        barcode: "",
-        item_name: "",
-        price: "",
-        weight: "",
-        category: "",
-        image_url: "",
-      });
-      setImageFile(null);
-      setImagePreview(null);
-      setShowForm(false);
-      
-      // Trigger a re-fetch instead of refreshing the page
-      setFetchTrigger(prev => prev + 1);
     } catch (error) {
-      console.error("Error adding product:", error);
-      toast.error("Failed to add product");
+      console.error('Error adding product:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to connect to the server',
+        variant: 'destructive',
+      });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
-
-  const filteredProducts = products.filter(product => 
-    product.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode.includes(searchQuery)
-  );
-
+  
+  if (status === 'loading') {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+  
   return (
-    <ProtectedRoute>
-      <div className="pb-20">
-        <header className="bg-white dark:bg-slate-800 p-4 shadow flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Products</h1>
-          <Button onClick={() => setShowForm(!showForm)}>
-            <Plus size={16} className="mr-2" />
-            {showForm ? "Cancel" : "Add Product"}
-          </Button>
-        </header>
-
-        <main className="p-4">
-          {showForm && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Add New Product</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1">
-                      <Label htmlFor="barcode">Barcode</Label>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Products Management</h1>
+      
+      <Tabs defaultValue="add" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="add">Add Product</TabsTrigger>
+          <TabsTrigger value="view">View Products</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="add" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Product</CardTitle>
+              <CardDescription>Enter the details of the new product</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="barcode">Barcode</Label>
+                    <div className="flex">
                       <Input
                         id="barcode"
                         name="barcode"
                         value={formData.barcode}
                         onChange={handleInputChange}
-                        placeholder="Enter barcode"
+                        className="flex-1"
                       />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="ml-2"
+                        onClick={() => setIsScannerOpen(!isScannerOpen)}
+                      >
+                        Scan
+                      </Button>
                     </div>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="mt-6"
-                      onClick={handleScanBarcode}
-                    >
-                      <Barcode size={18} className="mr-2" />
-                      Scan
-                    </Button>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="item_name">Item Name</Label>
+                    <Label htmlFor="name">Product Name</Label>
                     <Input
-                      id="item_name"
-                      name="item_name"
-                      value={formData.item_name}
+                      id="name"
+                      name="name"
+                      value={formData.name}
                       onChange={handleInputChange}
                       required
-                      placeholder="Enter item name"
                     />
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (£)</Label>
-                      <Input
-                        id="price"
-                        name="price"
-                        type="number"
-                        step="0.01"
-                        value={formData.price}
-                        onChange={handleInputChange}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="weight">Weight/Size</Label>
-                      <Input
-                        id="weight"
-                        name="weight"
-                        value={formData.weight}
-                        onChange={handleInputChange}
-                        placeholder="e.g. 500g, 1L"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Input
-                        id="category"
-                        name="category"
-                        value={formData.category}
-                        onChange={handleInputChange}
-                        placeholder="e.g. Dairy, Produce"
-                      />
-                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                    />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="image">Product Image</Label>
+                    <Label htmlFor="weight">Weight/Size</Label>
                     <Input
-                      id="image"
-                      name="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
+                      id="weight"
+                      name="weight"
+                      value={formData.weight}
+                      onChange={handleInputChange}
                     />
-                    
-                    {imagePreview && (
-                      <div className="mt-2">
-                        <Image
-                          src={imagePreview}
-                          alt="Product preview"
-                          width={100}
-                          height={100}
-                          className="object-cover rounded"
-                        />
-                      </div>
-                    )}
                   </div>
-                  
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Adding..." : "Add Product"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-          
-          <div className="mb-4 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <Input
-              placeholder="Search products by name or barcode"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          
-          {loading && !showForm ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-500 dark:text-gray-400">No products found</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
-                <Card key={product.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    {product.image_url && (
-                      <div className="h-40 relative">
-                        <Image
-                          src={product.image_url}
-                          alt={product.item_name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <h3 className="font-bold text-lg">{product.item_name}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">Barcode: {product.barcode}</p>
-                      {product.price > 0 && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          £{product.price.toFixed(2)}
-                        </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="image_url">Image URL</Label>
+                  <Input
+                    id="image_url"
+                    name="image_url"
+                    value={formData.image_url}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                
+                {isScannerOpen && (
+                  <div className="mt-4">
+                    <BarcodeScanner onDetected={handleBarcodeDetected} />
+                  </div>
+                )}
+                
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Product'
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="view" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Products</CardTitle>
+              <CardDescription>Manage your product inventory</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : products.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {products.map((product) => (
+                    <Card key={product.id} className="overflow-hidden">
+                      {product.image_url && (
+                        <div className="h-40 overflow-hidden">
+                          <img 
+                            src={product.image_url} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://placehold.co/400x300?text=No+Image';
+                            }}
+                          />
+                        </div>
                       )}
-                      {product.weight && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          Weight/Size: {product.weight}
-                        </p>
-                      )}
-                      {product.category && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          Category: {product.category}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </main>
-
-        {showScanner && (
-          <BarcodeScanner 
-            onDetected={handleBarcodeDetected} 
-            onClose={() => setShowScanner(false)} 
-          />
-        )}
-
-        <Navbar />
-      </div>
-    </ProtectedRoute>
+                      <CardHeader className="p-4">
+                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <CardDescription>
+                          {product.category && <span className="block">Category: {product.category}</span>}
+                          {product.barcode && <span className="block">Barcode: {product.barcode}</span>}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardFooter className="p-4 pt-0 flex justify-between">
+                        {product.price ? (
+                          <span className="font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                        ) : (
+                          <span>No price</span>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No products found. Add some products to get started.</p>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button onClick={fetchProducts} variant="outline" className="w-full">
+                Refresh Products
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 } 

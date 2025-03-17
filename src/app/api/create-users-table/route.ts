@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     console.log("Creating users table...");
     
     // Set a shorter statement timeout for this connection
-    await pool.query("SET statement_timeout = '2000'");
+    await pool.query("SET statement_timeout = '1500'");
     
     // Check if users table exists
     const usersTableExists = await pool.query(`
@@ -21,7 +21,8 @@ export async function GET(request: Request) {
     if (usersTableExists.rows[0].exists) {
       return NextResponse.json({
         success: true,
-        message: "Users table already exists"
+        message: "Users table already exists",
+        next: "/api/create-user-1"
       });
     }
     

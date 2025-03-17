@@ -1,49 +1,55 @@
 import { NextResponse } from "next/server";
-import { hash } from "bcrypt";
+import bcrypt from "bcrypt";
 import pool from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const { email, password, storeName } = await request.json();
+    console.log("Register API route called");
+    
+    const body = await request.json();
+    const { name, email, password } = body;
+    
+    console.log("Received registration data:", { name, email, password: "***" });
 
-    // Validate input
-    if (!email || !password) {
+    if (!name || !email || !password) {
+      console.log("Missing required fields");
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
     // Check if user already exists
+    console.log("Checking if user exists");
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
     if (existingUser.rows.length > 0) {
+      console.log("User already exists");
       return NextResponse.json(
-        { error: "User with this email already exists" },
-        { status: 409 }
+        { error: "User already exists" },
+        { status: 400 }
       );
     }
 
     // Hash password
-    const hashedPassword = await hash(password, 10);
+    console.log("Hashing password");
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
+    console.log("Creating user");
     const result = await pool.query(
-      "INSERT INTO users (email, password, store_name) VALUES ($1, $2, $3) RETURNING id, email, store_name",
-      [email, hashedPassword, storeName]
+      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email",
+      [name, email, hashedPassword]
     );
 
-    const newUser = result.rows[0];
+    const user = result.rows[0];
+    console.log("User created successfully:", user);
 
     return NextResponse.json(
-      {
-        id: newUser.id,
-        email: newUser.email,
-        storeName: newUser.store_name,
-      },
+      { message: "User registered successfully", user },
       { status: 201 }
     );
   } catch (error) {

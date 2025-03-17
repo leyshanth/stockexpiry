@@ -25,30 +25,38 @@ export const authOptions: NextAuthOptions = {
           const user = result.rows[0];
 
           if (!user) {
+            console.log("No user found with this email");
             return null;
           }
 
-          const isPasswordValid = await compare(
-            credentials.password,
-            user.password
-          );
+          const passwordMatch = await compare(credentials.password, user.password);
 
-          if (!isPasswordValid) {
+          if (!passwordMatch) {
+            console.log("Password does not match");
             return null;
           }
 
           return {
-            id: user.id,
+            id: user.id.toString(),
             email: user.email,
-            name: user.store_name,
+            name: user.name
           };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("Error in authorize function:", error);
           return null;
         }
       }
     })
   ],
+  pages: {
+    signIn: "/login",
+    signOut: "/login",
+    error: "/login",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -57,17 +65,11 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id;
+      if (token && session.user) {
+        session.user.id = token.id as string;
       }
       return session;
     }
   },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt" as const,
-  },
-  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }; 

@@ -33,18 +33,14 @@ export async function GET() {
 // Create a new expiry item
 export async function POST(request: Request) {
   try {
-    const sessionCookie = cookies().get('session');
+    // Check authentication
+    const session = await getServerSession(authOptions);
     
-    if (!sessionCookie?.value) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Extract user ID from session
-    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
-    const userId = sessionData.split(':')[0];
+    const userId = session.user?.id;
     
     if (!userId) {
       return NextResponse.json(

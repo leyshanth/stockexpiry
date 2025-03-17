@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // Get all products
 export async function GET() {
   try {
-    // Check authentication
+    // Get session
     const session = await getServerSession(authOptions);
     
     if (!session) {
@@ -42,7 +42,7 @@ export async function GET() {
           id SERIAL PRIMARY KEY,
           user_id INTEGER REFERENCES users(id),
           barcode VARCHAR(255),
-          name VARCHAR(255) NOT NULL,
+          name VARCHAR(255),
           price DECIMAL(10, 2),
           weight VARCHAR(255),
           category VARCHAR(255),
@@ -56,6 +56,17 @@ export async function GET() {
       
       // Return empty array since the table was just created
       return NextResponse.json({ items: [] });
+    }
+    
+    // Check if the products table has a name column
+    const columnCheck = await pool.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'name')"
+    );
+    
+    if (!columnCheck.rows[0].exists) {
+      console.log("name column does not exist in products table, adding it...");
+      await pool.query(`ALTER TABLE products ADD COLUMN name VARCHAR(255)`);
+      console.log("name column added to products table");
     }
     
     // Get products from database for this specific user
@@ -97,79 +108,108 @@ export async function GET() {
 // Create a new product
 export async function POST(request: Request) {
   try {
-    console.log("Creating new product");
-    
-    // Check authentication
+    // Get session
     const session = await getServerSession(authOptions);
     
     if (!session) {
-      console.log("No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
+    // Get the user ID from the session
     const userId = session.user?.id;
     
     if (!userId) {
-      console.log("No user ID in session");
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     
     // Convert to numeric user ID
     const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-    console.log(`Creating product for user ID: ${numericUserId}`);
-
-    // Parse request body
+    
+    // Get request body
     const body = await request.json();
-    console.log("Request body:", body);
+    console.log("Creating product with data:", body);
     
-    const { barcode, name, price, weight, category, image_url } = body;
-
-    // Check if the products table exists
-    const tableCheck = await pool.query(
-      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'products')"
-    );
+    // Check if the products table has the correct schema
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products'
+    `);
     
-    const tableExists = tableCheck.rows[0].exists;
+    const columns = columnCheck.rows.map(row => row.column_name);
+    console.log("Products table columns:", columns);
     
-    if (!tableExists) {
-      console.log("Creating products table");
-      // Create the products table if it doesn't exist
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS products (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id),
-          barcode VARCHAR(255),
-          name VARCHAR(255) NOT NULL,
-          price DECIMAL(10, 2),
-          weight VARCHAR(255),
-          category VARCHAR(255),
-          image_url TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          deleted_at TIMESTAMP
-        )
-      `);
-      console.log("Products table created");
+    // Handle the case where the table might have item_name instead of name
+    const hasItemName = columns.includes('item_name');
+    const hasName = columns.includes('name');
+    
+    let query;
+    let values;
+    
+    if (hasName) {
+      // Use name column
+      query = `
+        INSERT INTO products (user_id, barcode, name, price, weight, category, image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `;
+      values = [
+        numericUserId,
+        body.barcode || null,
+        body.name || body.item_name || 'Unnamed Product',
+        body.price || null,
+        body.weight || null,
+        body.category || null,
+        body.image_url || null
+      ];
+    } else if (hasItemName) {
+      // Use item_name column
+      query = `
+        INSERT INTO products (user_id, barcode, item_name, price, weight, category, image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `;
+      values = [
+        numericUserId,
+        body.barcode || null,
+        body.name || body.item_name || 'Unnamed Product',
+        body.price || null,
+        body.weight || null,
+        body.category || null,
+        body.image_url || null
+      ];
+    } else {
+      // Neither column exists, add name column
+      await pool.query(`ALTER TABLE products ADD COLUMN name VARCHAR(255)`);
+      console.log("Added name column to products table");
+      
+      query = `
+        INSERT INTO products (user_id, barcode, name, price, weight, category, image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `;
+      values = [
+        numericUserId,
+        body.barcode || null,
+        body.name || body.item_name || 'Unnamed Product',
+        body.price || null,
+        body.weight || null,
+        body.category || null,
+        body.image_url || null
+      ];
     }
-
-    // Insert the product
-    const result = await pool.query(
-      `INSERT INTO products 
-       (user_id, barcode, name, price, weight, category, image_url) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING *`,
-      [numericUserId, barcode, name, price, weight, category, image_url]
-    );
-
+    
+    const result = await pool.query(query, values);
     console.log("Product created:", result.rows[0]);
-    return NextResponse.json(result.rows[0], { status: 201 });
+    
+    return NextResponse.json({ item: result.rows[0] });
   } catch (error) {
     console.error("Error creating product:", error);
     return NextResponse.json(
       { 
         error: "Failed to create product", 
         details: error instanceof Error ? error.message : String(error),
-        suggestion: "Try visiting /api/test-db to diagnose database issues"
+        suggestion: "Try visiting /api/test-db to diagnose database issues or /api/fix-products-schema to fix the products table schema"
       },
       { status: 500 }
     );

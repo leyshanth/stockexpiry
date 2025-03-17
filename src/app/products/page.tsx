@@ -255,7 +255,7 @@ export default function ProductsPage() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="price">Price</Label>
+                      <Label htmlFor="price">Price (£)</Label>
                       <Input
                         id="price"
                         name="price"
@@ -358,8 +358,8 @@ export default function ProductsPage() {
                       <h3 className="font-bold text-lg">{product.item_name}</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Barcode: {product.barcode}</p>
                       {product.price > 0 && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          Price: ${typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(product.price).toFixed(2)}
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          £{product.price.toFixed(2)}
                         </p>
                       )}
                       {product.weight && (

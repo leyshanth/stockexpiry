@@ -18,7 +18,7 @@ interface ExpiryItem {
   id: number;
   barcode: string;
   item_name: string;
-  price: number;
+  price: number | string;
   weight: string;
   category: string;
   image_url: string;
@@ -406,7 +406,7 @@ export default function HomePage() {
                           </p>
                           {item.price && (
                             <p className="text-sm mt-1">
-                              Price: ${parseFloat(item.price).toFixed(2)}
+                              Price: £{typeof item.price === 'string' ? parseFloat(item.price).toFixed(2) : item.price.toFixed(2)}
                             </p>
                           )}
                         </div>

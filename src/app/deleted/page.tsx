@@ -136,6 +136,11 @@ export default function DeletedPage() {
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                           Type: {item.type === "product" ? "Product" : "Expiry Item"}
                         </p>
+                        {item.price && (
+                          <p className="text-sm mt-1">
+                            Price: £{typeof item.price === 'string' ? parseFloat(item.price).toFixed(2) : item.price.toFixed(2)}
+                          </p>
+                        )}
                       </div>
                       <div className="flex space-x-2">
                         <Button 

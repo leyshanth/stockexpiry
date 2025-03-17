@@ -11,8 +11,10 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['localhost'],
+    domains: ['images.unsplash.com', 'via.placeholder.com'],
   },
+  // Disable static page generation for authenticated routes
+  output: 'standalone',
 };
 
 module.exports = withPWA(nextConfig); 

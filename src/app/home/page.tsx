@@ -13,6 +13,7 @@ import { Filter, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 interface ExpiryItem {
   id: number;
@@ -39,9 +40,13 @@ export default function HomePage() {
     all: true,
   });
   const [fetchTrigger, setFetchTrigger] = useState(0);
+  const { status } = useSession();
 
   // Use useCallback to prevent the function from being recreated on every render
   const fetchExpiryItems = useCallback(async () => {
+    // Don't fetch if we're not authenticated yet
+    if (status !== "authenticated") return;
+    
     try {
       setLoading(true);
       const response = await fetch("/api/expiry");
@@ -62,7 +67,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     fetchExpiryItems();

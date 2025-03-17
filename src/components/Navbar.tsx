@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Package, Calendar, Settings, LogOut, Menu, X, Trash } from "lucide-react";
+import { Home, Package, Calendar, Settings, LogOut, Menu, X, Trash, Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
 
@@ -68,37 +68,29 @@ export function Navbar() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-gray-700 z-10">
         <div className="flex justify-around items-center h-16">
-          <Link href="/home" className="flex flex-col items-center justify-center w-full">
-            <div
-              className={`flex flex-col items-center justify-center p-2 rounded-md ${
-                isActive("/home") ? "text-primary" : "text-gray-500 dark:text-gray-400"
-              }`}
-            >
-              <Home size={20} />
-              <span className="text-xs mt-1">Home</span>
-            </div>
+          <Link href="/home" className={`flex flex-col items-center justify-center w-full h-full ${isActive('/home') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <Home size={24} />
+            <span className="text-xs mt-1">Home</span>
           </Link>
           
-          <Link href="/products" className="flex flex-col items-center justify-center w-full">
-            <div
-              className={`flex flex-col items-center justify-center p-2 rounded-md ${
-                isActive("/products") ? "text-primary" : "text-gray-500 dark:text-gray-400"
-              }`}
-            >
-              <Package size={20} />
-              <span className="text-xs mt-1">Products</span>
-            </div>
+          <Link href="/products" className={`flex flex-col items-center justify-center w-full h-full ${isActive('/products') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <Package size={24} />
+            <span className="text-xs mt-1">Products</span>
           </Link>
           
-          <Link href="/expiry" className="flex flex-col items-center justify-center w-full">
-            <div
-              className={`flex flex-col items-center justify-center p-2 rounded-md ${
-                isActive("/expiry") ? "text-primary" : "text-gray-500 dark:text-gray-400"
-              }`}
-            >
-              <Calendar size={20} />
-              <span className="text-xs mt-1">Expiry</span>
-            </div>
+          <Link href="/expiry" className={`flex flex-col items-center justify-center w-full h-full ${isActive('/expiry') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <Clock size={24} />
+            <span className="text-xs mt-1">Add Expiry</span>
+          </Link>
+          
+          <Link href="/deleted" className={`flex flex-col items-center justify-center w-full h-full ${isActive('/deleted') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <Trash size={24} />
+            <span className="text-xs mt-1">Deleted</span>
+          </Link>
+          
+          <Link href="/about" className={`flex flex-col items-center justify-center w-full h-full ${isActive('/about') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <Info size={24} />
+            <span className="text-xs mt-1">About</span>
           </Link>
           
           <button 

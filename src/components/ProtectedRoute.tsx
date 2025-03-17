@@ -1,34 +1,38 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-export default function ProtectedRoute({
-  children,
-}: {
+interface ProtectedRouteProps {
   children: React.ReactNode;
-}) {
-  const { user, loading } = useAuth();
+}
+
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Only redirect if we're sure the user is not authenticated
+    if (status === "unauthenticated") {
+      // Store the current path to redirect back after login
+      if (pathname !== "/login" && pathname !== "/register") {
+        sessionStorage.setItem("redirectPath", pathname);
+      }
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [status, router, pathname]);
 
-  if (loading) {
+  // Show loading state while checking authentication
+  if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  return <>{children}</>;
+  // Only render children if authenticated
+  return status === "authenticated" ? <>{children}</> : null;
 } 

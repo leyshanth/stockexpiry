@@ -26,8 +26,8 @@ export async function GET() {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     
-    // Convert string ID to integer if needed
-    const numericUserId = parseInt(userId, 10);
+    // Convert to numeric user ID (handle both string and number types)
+    const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
     console.log(`Using numeric user ID: ${numericUserId}`);
     
     try {
@@ -104,8 +104,8 @@ export async function POST(request: Request) {
       );
     }
     
-    // Convert string ID to integer if needed
-    const numericUserId = parseInt(userId, 10);
+    // Convert to numeric user ID (handle both string and number types)
+    const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
     console.log(`Creating item for user ID: ${numericUserId}`);
 
     const { barcode, item_name, price, weight, category, image_url, quantity, expiry_date } = await request.json();

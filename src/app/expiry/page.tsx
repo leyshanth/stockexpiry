@@ -44,22 +44,12 @@ export default function ExpiryPage() {
   const [expiryItems, setExpiryItems] = useState([]);
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
+  // Only allow quantity and expiry date to be edited
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    // Only allow editing quantity and expiry_date
+    if (name === 'quantity' || name === 'expiry_date') {
+      setFormData({ ...formData, [name]: value });
     }
   };
 
@@ -94,10 +84,16 @@ export default function ExpiryPage() {
           description: `${product.item_name} loaded from database`,
         });
       } else {
-        // Product not found, just set the barcode
-        toast.info("Product not found", {
-          description: "Please enter product details manually",
+        // Product not found, redirect to products page
+        toast.error("Product not found", {
+          description: "Please add the product first",
         });
+        
+        // Store the barcode in localStorage to pre-fill it on the products page
+        localStorage.setItem('pendingBarcode', barcode);
+        
+        // Redirect to products page
+        router.push('/products');
       }
     } catch (error) {
       console.error("Error checking product:", error);
@@ -106,20 +102,6 @@ export default function ExpiryPage() {
   };
 
   const handleScanBarcode = () => {
-    // Check if the device has camera access
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // If no camera access, show a prompt for manual entry
-      const barcode = prompt("Enter barcode manually:");
-      if (barcode && barcode.trim() !== "") {
-        console.log("Manual barcode entered:", barcode);
-        handleBarcodeDetected(barcode.trim());
-      } else {
-        console.log("No barcode entered or empty barcode");
-      }
-      return;
-    }
-    
-    // Otherwise show the scanner
     setShowScanner(true);
   };
 
@@ -154,16 +136,13 @@ export default function ExpiryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!productFound) {
+      toast.error("Please scan a valid product barcode first");
+      return;
+    }
+    
     try {
       setLoading(true);
-      
-      // Handle image upload if there's a new image
-      let imageUrl = formData.image_url;
-      if (imageFile) {
-        // In a real app, you would upload the image to a server or cloud storage
-        // For this example, we'll just use a placeholder URL
-        imageUrl = `/images/${Date.now()}_${imageFile.name}`;
-      }
       
       const expiryData = {
         barcode: formData.barcode,
@@ -171,7 +150,7 @@ export default function ExpiryPage() {
         price: parseFloat(formData.price) || 0,
         weight: formData.weight,
         category: formData.category,
-        image_url: imageUrl,
+        image_url: formData.image_url,
         quantity: parseInt(formData.quantity) || 1,
         expiry_date: formData.expiry_date,
       };
@@ -210,138 +189,159 @@ export default function ExpiryPage() {
         <main className="p-4">
           <Card>
             <CardHeader>
-              <CardTitle>Item Details</CardTitle>
+              <CardTitle>Scan Product Barcode</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1">
-                    <Label htmlFor="barcode">Barcode</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">Barcode</Label>
+                  <div className="flex space-x-2">
                     <Input
                       id="barcode"
                       name="barcode"
                       value={formData.barcode}
                       onChange={handleInputChange}
-                      placeholder="Enter barcode"
+                      placeholder="Scan or enter barcode"
+                      readOnly
+                      className="flex-1"
                     />
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="mt-6"
-                    onClick={handleScanBarcode}
-                  >
-                    <Barcode size={18} className="mr-2" />
-                    Scan
-                  </Button>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="item_name">Item Name</Label>
-                  <Input
-                    id="item_name"
-                    name="item_name"
-                    value={formData.item_name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Enter item name"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input
-                      id="price"
-                      name="price"
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="weight">Weight/Size</Label>
-                    <Input
-                      id="weight"
-                      name="weight"
-                      value={formData.weight}
-                      onChange={handleInputChange}
-                      placeholder="e.g., 500g, 1L"
-                    />
+                    <Button type="button" onClick={handleScanBarcode} variant="outline">
+                      <Barcode className="h-4 w-4 mr-2" />
+                      Scan
+                    </Button>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Dairy, Produce"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantity</Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      min="1"
-                      value={formData.quantity}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="expiry_date">Expiry Date</Label>
-                    <Input
-                      id="expiry_date"
-                      name="expiry_date"
-                      type="date"
-                      value={formData.expiry_date}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="image">Image (Optional)</Label>
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                  />
-                  {(imagePreview || formData.image_url) && (
-                    <div className="mt-2 relative h-32 w-32">
-                      <Image
-                        src={imagePreview || formData.image_url}
-                        alt="Preview"
-                        fill
-                        className="object-cover rounded"
+
+                {productFound && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="item_name">Product Name</Label>
+                      <Input
+                        id="item_name"
+                        name="item_name"
+                        value={formData.item_name}
+                        readOnly
+                        className="bg-gray-100 dark:bg-slate-700"
                       />
                     </div>
-                  )}
-                </div>
-                
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Saving..." : "Add Expiry Item"}
-                </Button>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Price</Label>
+                        <Input
+                          id="price"
+                          name="price"
+                          value={formData.price}
+                          readOnly
+                          className="bg-gray-100 dark:bg-slate-700"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="weight">Weight/Size</Label>
+                        <Input
+                          id="weight"
+                          name="weight"
+                          value={formData.weight}
+                          readOnly
+                          className="bg-gray-100 dark:bg-slate-700"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Input
+                        id="category"
+                        name="category"
+                        value={formData.category}
+                        readOnly
+                        className="bg-gray-100 dark:bg-slate-700"
+                      />
+                    </div>
+
+                    {imagePreview && (
+                      <div className="space-y-2">
+                        <Label>Product Image</Label>
+                        <div className="border rounded-md p-2 w-full h-40 flex items-center justify-center">
+                          <Image
+                            src={imagePreview}
+                            alt="Product preview"
+                            width={150}
+                            height={150}
+                            className="max-h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input
+                          id="quantity"
+                          name="quantity"
+                          type="number"
+                          min="1"
+                          value={formData.quantity}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="expiry_date">Expiry Date</Label>
+                        <div className="flex">
+                          <Input
+                            id="expiry_date"
+                            name="expiry_date"
+                            type="date"
+                            value={formData.expiry_date}
+                            onChange={handleInputChange}
+                            required
+                          />
+                          <Button type="button" variant="outline" className="ml-2" onClick={() => {
+                            setFormData({
+                              ...formData,
+                              expiry_date: format(new Date(), "yyyy-MM-dd")
+                            });
+                          }}>
+                            <Calendar className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Expiry Item
+                    </Button>
+                  </>
+                )}
+
+                {!productFound && formData.barcode && (
+                  <div className="text-center py-6">
+                    <p className="text-red-500 mb-4">Product not found. Please add it first.</p>
+                    <Button type="button" onClick={() => router.push('/products')}>
+                      Go to Products Page
+                    </Button>
+                  </div>
+                )}
+
+                {!productFound && !formData.barcode && (
+                  <div className="text-center py-6">
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      Please scan a product barcode to continue
+                    </p>
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>
         </main>
 
         {showScanner && (
-          <BarcodeScanner 
-            onDetected={handleBarcodeDetected} 
-            onClose={() => setShowScanner(false)} 
+          <BarcodeScanner
+            onDetected={handleBarcodeDetected}
+            onClose={() => setShowScanner(false)}
           />
         )}
 

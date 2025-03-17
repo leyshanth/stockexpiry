@@ -67,8 +67,25 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
+    // Check if there's a pending barcode from the expiry page
+    const pendingBarcode = localStorage.getItem('pendingBarcode');
+    if (pendingBarcode) {
+      // Pre-fill the form with the barcode
+      setFormData({
+        ...formData,
+        barcode: pendingBarcode
+      });
+      // Show the form
+      setShowForm(true);
+      // Clear the pending barcode
+      localStorage.removeItem('pendingBarcode');
+      
+      toast.info("Please add this product first", {
+        description: `Barcode: ${pendingBarcode}`
+      });
+    }
+    
     fetchProducts();
-    // Only run this effect when fetchTrigger changes
   }, [fetchTrigger, fetchProducts]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,10 +98,21 @@ export default function ProductsPage() {
       const file = e.target.files[0];
       setImageFile(file);
       
-      // Create preview
+      // Check file size (limit to 5MB to avoid database issues)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image is too large", {
+          description: "Please select an image smaller than 5MB"
+        });
+        return;
+      }
+      
+      // Convert to base64
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        const base64String = reader.result as string;
+        setImagePreview(base64String);
+        // Store the base64 string in the form data
+        setFormData({ ...formData, image_url: base64String });
       };
       reader.readAsDataURL(file);
     }
@@ -119,13 +147,7 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       
-      // Handle image upload if there's a new image
-      let imageUrl = formData.image_url;
-      if (imageFile) {
-        // In a real app, you would upload the image to a server or cloud storage
-        // For this example, we'll just use a placeholder URL
-        imageUrl = `/images/${Date.now()}_${imageFile.name}`;
-      }
+      // No need for special image handling - the base64 string is already in formData.image_url
       
       const productData = {
         barcode: formData.barcode,
@@ -133,7 +155,7 @@ export default function ProductsPage() {
         price: parseFloat(formData.price) || 0,
         weight: formData.weight,
         category: formData.category,
-        image_url: imageUrl,
+        image_url: formData.image_url, // This is now the base64 string
       };
       
       const response = await fetch("/api/products", {

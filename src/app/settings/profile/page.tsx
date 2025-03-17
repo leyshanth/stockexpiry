@@ -27,8 +27,8 @@ export default function ProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !email) {
-      toast.error("Please fill in all fields");
+    if (!email) {
+      toast.error("Email is required");
       return;
     }
     
@@ -93,6 +93,7 @@ export default function ProfilePage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Your email"
+                  required
                 />
               </div>
               

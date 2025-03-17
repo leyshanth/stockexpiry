@@ -1,27 +1,43 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { cookies } from "next/headers";
 import pool from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 // Get all expiry items for the logged-in user
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionCookie = cookies().get('session');
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
     }
-
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
+    }
+    
+    // Get expiry data for the user
     const result = await pool.query(
-      "SELECT * FROM expiry_items WHERE user_id = $1 ORDER BY expiry_date ASC",
-      [session.user.id]
+      `SELECT * FROM expiry_items WHERE user_id = $1 ORDER BY expiry_date ASC`,
+      [userId]
     );
-
-    return NextResponse.json(result.rows);
+    
+    return NextResponse.json({ items: result.rows });
   } catch (error) {
-    console.error("Error fetching expiry items:", error);
+    console.error("Error fetching expiry data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch expiry items" },
+      { error: "An error occurred" },
       { status: 500 }
     );
   }

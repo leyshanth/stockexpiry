@@ -53,8 +53,19 @@ export async function POST(request: Request) {
       path: "/",
     });
     
+    // Return user data without the name property if it doesn't exist
+    const userData = {
+      id: user.id,
+      email: user.email
+    };
+    
+    // Add name property only if it exists
+    if (user.name) {
+      userData.name = user.name;
+    }
+    
     return NextResponse.json(
-      { success: true, user: { id: user.id, email: user.email, name: user.name } },
+      { success: true, user: userData },
       { status: 200 }
     );
   } catch (error) {

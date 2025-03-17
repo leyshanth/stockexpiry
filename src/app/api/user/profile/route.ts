@@ -29,11 +29,26 @@ export async function PUT(request: Request) {
     // Get request body
     const { name, email } = await request.json();
     
-    if (!name || !email) {
+    if (!email) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: "Email is required" },
         { status: 400 }
       );
+    }
+    
+    // Check if name column exists
+    const checkResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'name'
+    `);
+    
+    // If name column doesn't exist, add it
+    if (checkResult.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN name VARCHAR(255)
+      `);
     }
     
     // Update user profile

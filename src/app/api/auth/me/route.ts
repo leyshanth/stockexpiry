@@ -27,9 +27,9 @@ export async function GET() {
       );
     }
     
-    // Get user data
+    // Get user data - only select columns we know exist
     const result = await pool.query(
-      "SELECT id, email, name FROM users WHERE id = $1",
+      "SELECT id, email FROM users WHERE id = $1",
       [userId]
     );
     
@@ -40,6 +40,11 @@ export async function GET() {
         { error: "User not found" },
         { status: 404 }
       );
+    }
+    
+    // Add an empty name property if it doesn't exist
+    if (!user.name) {
+      user.name = "";
     }
     
     return NextResponse.json({ user });

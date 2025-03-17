@@ -12,19 +12,23 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     
     if (!session) {
+      console.log("No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    
+    console.log("Session user:", session.user);
     
     // Get expiry items from database
     const result = await pool.query(
       "SELECT * FROM expiry_items WHERE deleted_at IS NULL ORDER BY expiry_date ASC"
     );
     
+    console.log(`Found ${result.rows.length} expiry items`);
     return NextResponse.json({ items: result.rows });
   } catch (error) {
     console.error("Error fetching expiry items:", error);
     return NextResponse.json(
-      { error: "Failed to fetch expiry items" },
+      { error: "Failed to fetch expiry items", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

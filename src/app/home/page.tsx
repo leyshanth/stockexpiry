@@ -50,10 +50,11 @@ export default function HomePage() {
     try {
       setLoading(true);
       const response = await fetch("/api/expiry", {
-        // Add cache: 'no-store' to prevent caching issues
         cache: 'no-store',
-        // Add credentials to ensure cookies are sent
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       if (!response.ok) {
@@ -63,6 +64,7 @@ export default function HomePage() {
       }
       
       const data = await response.json();
+      console.log("Fetched data:", data);
       
       // Check if the response has an 'items' property (new format)
       const items = data.items || data;

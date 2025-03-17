@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
-import { AuthProvider } from "@/components/AuthProvider";
+import AuthProvider from "@/components/AuthProvider";
 
 // Define the fonts
 const inter = Inter({

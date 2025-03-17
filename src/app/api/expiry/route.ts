@@ -18,12 +18,21 @@ export async function GET() {
     
     console.log("Session user:", session.user);
     
-    // Get expiry items from database
+    // Get the user ID from the session
+    const userId = session.user?.id;
+    
+    if (!userId) {
+      console.log("No user ID in session");
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+    
+    // Get expiry items from database for this specific user
     const result = await pool.query(
-      "SELECT * FROM expiry_items WHERE deleted_at IS NULL ORDER BY expiry_date ASC"
+      "SELECT * FROM expiry_items WHERE user_id = $1 AND deleted_at IS NULL ORDER BY expiry_date ASC",
+      [userId]
     );
     
-    console.log(`Found ${result.rows.length} expiry items`);
+    console.log(`Found ${result.rows.length} expiry items for user ${userId}`);
     return NextResponse.json({ items: result.rows });
   } catch (error) {
     console.error("Error fetching expiry items:", error);

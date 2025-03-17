@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { useEffect } from "react";
 
 // Define the fonts
 const inter = Inter({
@@ -26,6 +27,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  useEffect(() => {
+    // Initialize the database
+    fetch("/api/init-db")
+      .then(response => response.json())
+      .then(data => {
+        console.log("Database initialization:", data);
+      })
+      .catch(error => {
+        console.error("Error initializing database:", error);
+      });
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

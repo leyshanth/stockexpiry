@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
-import AuthProvider from "@/components/AuthProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 // Define the fonts
 const inter = Inter({
@@ -35,6 +35,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#0f172a" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className={`${inter.className} ${jetbrainsMono.className} antialiased`}>
         <AuthProvider>

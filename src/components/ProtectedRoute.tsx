@@ -1,42 +1,24 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export default function ProtectedRoute({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log("ProtectedRoute - Session status:", status, "Session:", session);
-    
-    if (status === "loading") {
-      return; // Wait for the session to load
-    }
-    
-    setIsLoading(false);
-    
-    if (!session) {
-      console.log("No session found, redirecting to login page");
+    if (!loading && !user) {
       router.push("/login");
-      
-      // Force a hard navigation if router.push doesn't work
-      setTimeout(() => {
-        if (window.location.pathname !== "/login") {
-          console.log("Forcing navigation to login page");
-          window.location.href = "/login";
-        }
-      }, 500);
     }
-  }, [session, status, router]);
+  }, [user, loading, router]);
 
-  if (isLoading || status === "loading") {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -44,8 +26,8 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!session) {
-    return null; // Don't render anything while redirecting
+  if (!user) {
+    return null;
   }
 
   return <>{children}</>;

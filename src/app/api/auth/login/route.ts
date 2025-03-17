@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { compare } from "bcrypt";
 import pool from "@/lib/db";
-import { sign } from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
@@ -40,15 +39,11 @@ export async function POST(request: Request) {
       );
     }
     
-    // Create session token
-    const token = sign(
-      { id: user.id, email: user.email },
-      process.env.NEXTAUTH_SECRET || "fallback-secret",
-      { expiresIn: "7d" }
-    );
+    // Create a simple session identifier
+    const sessionId = Buffer.from(`${user.id}:${Date.now()}`).toString('base64');
     
     // Set cookie
-    cookies().set("auth-token", token, {
+    cookies().set("session", sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",

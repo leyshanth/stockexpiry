@@ -30,89 +30,67 @@ export async function GET() {
     const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
     console.log(`Using numeric user ID: ${numericUserId}`);
     
-    try {
-      // First try to get items with the specific user ID
-      const result = await pool.query(
-        "SELECT * FROM expiry_items WHERE user_id = $1 AND deleted_at IS NULL ORDER BY expiry_date ASC",
-        [numericUserId]
+    // Check if the expiry_items table exists
+    const tableCheck = await pool.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'expiry_items')"
+    );
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log("expiry_items table does not exist, creating it...");
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS expiry_items (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id),
+          barcode VARCHAR(255),
+          item_name VARCHAR(255) NOT NULL,
+          price DECIMAL(10, 2),
+          weight VARCHAR(255),
+          category VARCHAR(255),
+          image_url TEXT,
+          quantity INTEGER DEFAULT 1,
+          expiry_date DATE NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TIMESTAMP
+        )
+      `);
+      console.log("expiry_items table created");
+      
+      // Return empty array since the table was just created
+      return NextResponse.json({ items: [] });
+    }
+    
+    // Get expiry items from database for this specific user
+    const result = await pool.query(
+      "SELECT * FROM expiry_items WHERE user_id = $1 AND deleted_at IS NULL ORDER BY expiry_date ASC",
+      [numericUserId]
+    );
+    
+    console.log(`Found ${result.rows.length} expiry items for user ${numericUserId}`);
+    
+    if (result.rows.length === 0) {
+      // If no items found, try getting all items as a fallback
+      console.log("No items found for this user, getting all items");
+      const allResult = await pool.query(
+        "SELECT * FROM expiry_items WHERE deleted_at IS NULL ORDER BY expiry_date ASC LIMIT 10"
       );
       
-      console.log(`Found ${result.rows.length} expiry items for user ${numericUserId}`);
-      
-      if (result.rows.length === 0) {
-        // If no items found, try getting items with NULL user_id as a fallback
-        console.log("No items found for this user, checking for items with NULL user_id");
-        const nullResult = await pool.query(
-          "SELECT * FROM expiry_items WHERE user_id IS NULL AND deleted_at IS NULL ORDER BY expiry_date ASC"
-        );
-        
-        console.log(`Found ${nullResult.rows.length} expiry items with NULL user_id`);
-        
-        // If still no items, try getting all items as a last resort
-        if (nullResult.rows.length === 0) {
-          console.log("No items found with NULL user_id, getting all items");
-          const allResult = await pool.query(
-            "SELECT * FROM expiry_items WHERE deleted_at IS NULL ORDER BY expiry_date ASC LIMIT 10"
-          );
-          
-          console.log(`Found ${allResult.rows.length} total expiry items`);
-          return NextResponse.json({ 
-            items: allResult.rows,
-            note: "Showing all items because no items found for your user ID"
-          });
-        }
-        
-        return NextResponse.json({ 
-          items: nullResult.rows,
-          note: "Showing items with no user ID because no items found for your user ID"
-        });
-      }
-      
-      return NextResponse.json({ items: result.rows });
-    } catch (dbError) {
-      console.error("Database error:", dbError);
-      
-      // Try a fallback query without the user_id filter to see if the table exists
-      try {
-        const checkResult = await pool.query(
-          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'expiry_items')"
-        );
-        const tableExists = checkResult.rows[0].exists;
-        
-        if (!tableExists) {
-          console.log("expiry_items table does not exist");
-          return NextResponse.json({ 
-            error: "Database table not found", 
-            details: "The expiry_items table does not exist" 
-          }, { status: 500 });
-        }
-        
-        // Check if there are any items in the table
-        const countResult = await pool.query("SELECT COUNT(*) FROM expiry_items");
-        console.log(`Total expiry items in database: ${countResult.rows[0].count}`);
-        
-        // Try to get all items as a last resort
-        const allItems = await pool.query(
-          "SELECT * FROM expiry_items WHERE deleted_at IS NULL ORDER BY expiry_date ASC LIMIT 10"
-        );
-        
-        return NextResponse.json({ 
-          items: allItems.rows,
-          note: "Showing all items due to an error with user filtering"
-        });
-      } catch (fallbackError) {
-        console.error("Fallback query error:", fallbackError);
-        return NextResponse.json({ 
-          error: "Failed to fetch expiry items", 
-          details: "Database error in fallback query",
-          originalError: dbError instanceof Error ? dbError.message : String(dbError)
-        }, { status: 500 });
-      }
+      console.log(`Found ${allResult.rows.length} total expiry items`);
+      return NextResponse.json({ 
+        items: allResult.rows,
+        note: "Showing all items because no items found for your user ID"
+      });
     }
+    
+    return NextResponse.json({ items: result.rows });
   } catch (error) {
     console.error("Error fetching expiry items:", error);
     return NextResponse.json(
-      { error: "Failed to fetch expiry items", details: error instanceof Error ? error.message : String(error) },
+      { 
+        error: "Failed to fetch expiry items", 
+        details: error instanceof Error ? error.message : String(error),
+        suggestion: "Try visiting /api/test-db to diagnose database issues or /api/repair-db to repair the database"
+      },
       { status: 500 }
     );
   }

@@ -3,7 +3,7 @@ import pool from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log("Starting minimal schema fix...");
     

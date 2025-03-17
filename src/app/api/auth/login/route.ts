@@ -3,6 +3,8 @@ import { compare } from "bcrypt";
 import pool from "@/lib/db";
 import { cookies } from "next/headers";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();

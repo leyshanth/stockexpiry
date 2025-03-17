@@ -7,12 +7,11 @@ export function middleware(request: NextRequest) {
   const isLoggedIn = !!session?.value;
   
   // Define public paths that don't require authentication
-  const publicPaths = ['/login', '/register', '/api/auth/login', '/api/auth/register'];
+  const publicPaths = ['/login', '/register'];
   
   // Check if the current path is a public path
   const isPublicPath = publicPaths.some(path => 
-    request.nextUrl.pathname === path || 
-    request.nextUrl.pathname.startsWith('/api/auth/')
+    request.nextUrl.pathname === path
   );
   
   // If not logged in and trying to access a protected route
@@ -21,7 +20,7 @@ export function middleware(request: NextRequest) {
   }
   
   // If logged in and trying to access login/register page
-  if (isLoggedIn && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+  if (isLoggedIn && isPublicPath) {
     return NextResponse.redirect(new URL('/', request.url));
   }
   
@@ -36,8 +35,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public (public files)
+     * - public files (icons, manifest.json)
+     * - API routes that need to be dynamic
      */
-    '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|api/auth).*)',
   ],
 }; 

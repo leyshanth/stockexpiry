@@ -1,58 +1,52 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { cookies } from "next/headers";
 import pool from "@/lib/db";
-import { hash } from "bcrypt";
+
+export const dynamic = 'force-dynamic';
 
 export async function PUT(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { storeName, newPassword } = await request.json();
-
-    // Start a transaction
-    const client = await pool.connect();
+    const sessionCookie = cookies().get('session');
     
-    try {
-      await client.query('BEGIN');
-      
-      // Update store name
-      if (storeName) {
-        await client.query(
-          "UPDATE users SET store_name = $1 WHERE id = $2",
-          [storeName, session.user.id]
-        );
-      }
-      
-      // Update password if provided
-      if (newPassword) {
-        // Hash new password
-        const hashedPassword = await hash(newPassword, 10);
-        
-        // Update password
-        await client.query(
-          "UPDATE users SET password = $1 WHERE id = $2",
-          [hashedPassword, session.user.id]
-        );
-      }
-      
-      await client.query('COMMIT');
-      
-      return NextResponse.json({ message: "Profile updated successfully" });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
     }
+    
+    // Extract user ID from session
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString();
+    const userId = sessionData.split(':')[0];
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
+    }
+    
+    // Get request body
+    const { name, email } = await request.json();
+    
+    if (!name || !email) {
+      return NextResponse.json(
+        { error: "Name and email are required" },
+        { status: 400 }
+      );
+    }
+    
+    // Update user profile
+    await pool.query(
+      "UPDATE users SET name = $1, email = $2 WHERE id = $3",
+      [name, email, userId]
+    );
+    
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json(
-      { error: "Failed to update profile" },
+      { error: "An error occurred" },
       { status: 500 }
     );
   }

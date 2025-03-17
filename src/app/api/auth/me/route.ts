@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import pool from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const sessionCookie = cookies().get('session');
